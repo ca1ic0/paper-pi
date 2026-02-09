@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>后台管理 - Paper Pi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <h1>Paper Pi</h1>
+                <span class="subtitle">后台管理系统</span>
+            </div>
+            <nav class="nav">
+                <a href="/" class="nav-link">首页</a>
+                <a href="/admin" class="nav-link active">后台管理</a>
+                <a href="/text2image" class="nav-link">文生图</a>
+            </nav>
+        </header>
+        
+        <main class="main admin-main">
+            <div class="admin-header">
+                <h3>播放列表管理</h3>
+                <button class="btn btn-primary" id="add-playlist-btn">添加播放列表</button>
+            </div>
+            
+            <div class="playlist-list" id="playlist-list">
+                <!-- 播放列表将通过JavaScript动态添加 -->
+            </div>
+        </main>
+        
+        <footer class="footer">
+            <div class="footer-content">
+                <p>&copy; 2026 Paper Pi. 智能墨水屏应用系统</p>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- 添加显示单元模态框 -->
+    <div class="modal" id="add-du-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>添加显示单元</h4>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-du-form">
+                    <div class="form-group">
+                        <label for="du-name">名称</label>
+                        <input type="text" id="du-name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="du-type">类型</label>
+                        <select id="du-type" name="type" required>
+                            <option value="EmptyDisplayUnit">空单元（白色刷新）</option>
+                            <option value="ImageDisplayUnit">图片单元</option>
+                            <option value="TextToImageDisplayUnit">文生图单元</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="image-path-group" style="display: none;">
+                        <label for="du-image-path">图片路径</label>
+                        <input type="text" id="du-image-path" name="image_path">
+                    </div>
+                    <div class="form-group" id="user-prompt-group" style="display: none;">
+                        <label for="du-user-prompt">用户提示词</label>
+                        <textarea id="du-user-prompt" name="user_prompt" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="du-display-time">显示时间（秒）</label>
+                        <input type="number" id="du-display-time" name="display_time" min="1" value="10">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-du-btn">取消</button>
+                <button class="btn btn-primary" id="save-du-btn">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑显示单元模态框 -->
+    <div class="modal" id="edit-du-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>编辑显示单元</h4>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-du-form">
+                    <input type="hidden" id="edit-du-id" name="du_id">
+                    <div class="form-group">
+                        <label for="edit-du-name">名称</label>
+                        <input type="text" id="edit-du-name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-du-type">类型</label>
+                        <select id="edit-du-type" name="type" disabled>
+                            <option value="EmptyDisplayUnit">空单元</option>
+                            <option value="ImageDisplayUnit">图片单元</option>
+                            <option value="TextToImageDisplayUnit">文生图单元</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="edit-image-path-group" style="display: none;">
+                        <label for="edit-du-image-path">图片路径</label>
+                        <input type="text" id="edit-du-image-path" name="image_path">
+                    </div>
+                    <div class="form-group" id="edit-user-prompt-group" style="display: none;">
+                        <label for="edit-du-user-prompt">用户提示词</label>
+                        <textarea id="edit-du-user-prompt" name="user_prompt" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-du-display-time">显示时间（秒）</label>
+                        <input type="number" id="edit-du-display-time" name="display_time" min="1" value="10">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-edit-du-btn">取消</button>
+                <button class="btn btn-primary" id="save-edit-du-btn">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 添加播放列表模态框 -->
+    <div class="modal" id="add-playlist-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>添加播放列表</h4>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="add-playlist-form">
+                    <div class="form-group">
+                        <label for="playlist-name">名称</label>
+                        <input type="text" id="playlist-name" name="name" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancel-playlist-btn">取消</button>
+                <button class="btn btn-primary" id="save-playlist-btn">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 预览模态框 -->
+    <div class="modal" id="preview-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>显示单元预览</h4>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="preview-container">
+                    <div class="preview-loading" id="preview-loading">
+                        <p>加载预览中...</p>
+                    </div>
+                    <div class="preview-image" id="preview-image" style="display: none;">
+                        <img id="preview-img" src="" alt="预览图片">
+                    </div>
+                    <div class="preview-error" id="preview-error" style="display: none;">
+                        <p>预览加载失败</p>
+                    </div>
+                </div>
+                <div class="preview-info">
+                    <h5 id="preview-title">预览标题</h5>
+                    <p id="preview-description">预览描述</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="close-preview-btn">关闭</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+</body>
+</html>
