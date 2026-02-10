@@ -14,13 +14,9 @@ class DisplayService:
         
         # 仅在生产模式下导入墨水屏驱动
         if self.run_mode == 'production':
-            try:
-                from lib.waveshare_epd.epd7in3e import EPD
-                self.epd = EPD()
-                self.epd.init()
-            except Exception as e:
-                print(f"Error initializing EPD: {e}")
-                self.run_mode = 'debug'  # 初始化失败时切换到debug模式
+            from lib.waveshare_epd.epd7in3e import EPD
+            self.epd = EPD()
+            self.epd.init()
     
     def display_image(self, image):
         """
@@ -53,10 +49,8 @@ class DisplayService:
         :param image: PIL.Image对象
         """
         if self.epd is None:
-            print("EPD not initialized, falling back to debug mode")
-            self._display_with_plt(image)
-            return
-        
+            raise RuntimeError("EPD not initialized in production mode")
+
         try:
             print("Displaying image on e-paper...")
             # 转换图像为墨水屏驱动需要的格式
@@ -66,9 +60,7 @@ class DisplayService:
             # 休眠以节省电量
             self.epd.sleep()
         except Exception as e:
-            print(f"Error displaying image on EPD: {e}")
-            # 出错时切换到debug模式显示
-            self._display_with_plt(image)
+            raise RuntimeError(f"Error displaying image on EPD: {e}")
     
     def clear_display(self):
         """
