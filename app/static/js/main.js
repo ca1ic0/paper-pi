@@ -17,9 +17,5 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 
 // 添加页面加载动画
 window.addEventListener('load', function() {
-    document.body.style.opacity = '0';
-    document.body.style.transition = 'opacity 0.5s ease';
-    setTimeout(() => {
-        document.body.style.opacity = '1';
-    }, 100);
+    document.body.classList.add('is-loaded');
 });

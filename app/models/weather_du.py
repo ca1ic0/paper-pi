@@ -1,0 +1,208 @@
+from app.models.display_unit import DisplayUnit, register_display_unit
+from app.services.weather_service import WeatherService
+from app.services.weather_cache_service import WeatherCacheService
+from app.services.image_library_service import ImageLibraryService
+from app.services.image_gen_service import ImageGenService
+from app.config import SCREEN_WIDTH, SCREEN_HEIGHT, WEATHER_FONT_PATH
+from PIL import Image, ImageDraw, ImageFont, ImageStat
+import os
+import threading
+
+
+@register_display_unit
+class WeatherDisplayUnit(DisplayUnit):
+    """天气显示单元：每日首次生成背景图并缓存"""
+
+    def __init__(self, name, location, display_time=30):
+        super().__init__(name, display_time)
+        self.location = location
+        self.weather_service = WeatherService()
+        self.cache_service = WeatherCacheService()
+        self.image_library_service = ImageLibraryService()
+        self.image_gen_service = ImageGenService()
+
+    def _build_prompt(self, weather_text, temp):
+        return (
+            f"新海诚风格的天空与城市背景，细腻光影与云层，清新通透。"
+            f"今日天气：{weather_text}，气温 {temp}°C。"
+        )
+
+    def _draw_weather_text(self, image, date_text, weather_text, temp, humidity, wind_dir, wind_scale, vis):
+        # High-end UI: translucent glass card + hierarchy
+        base = image.convert("RGBA")
+        overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+
+        card_w = int(SCREEN_WIDTH * 0.78)
+        card_h = int(SCREEN_HEIGHT * 0.46)
+        card_x = (SCREEN_WIDTH - card_w) // 2
+        card_y = (SCREEN_HEIGHT - card_h) // 2
+        radius = 18
+
+        # Glass card background
+        draw.rounded_rectangle(
+            (card_x, card_y, card_x + card_w, card_y + card_h),
+            radius=radius,
+            fill=(8, 12, 20, 170),
+            outline=(255, 255, 255, 40),
+            width=2,
+        )
+
+        # Accent line
+        draw.rounded_rectangle(
+            (card_x + 16, card_y + 14, card_x + 120, card_y + 18),
+            radius=6,
+            fill=(6, 182, 212, 220),
+        )
+
+        title_font = self._load_font(60)
+        sub_font = self._load_font(30)
+        meta_font = self._load_font(24)
+
+        # Layout inside card
+        padding_x = 28
+        y = card_y + 30
+
+        # Date
+        draw.text((card_x + padding_x, y), date_text, fill=(220, 230, 240, 220), font=meta_font)
+        y += 34
+
+        # Weather main
+        draw.text((card_x + padding_x, y), weather_text, fill=(255, 255, 255, 240), font=title_font)
+        y += 74
+
+        # Temp / Humidity row
+        line1 = f"温度 {temp}°C"
+        line2 = f"湿度 {humidity}%"
+        draw.text((card_x + padding_x, y), line1, fill=(200, 220, 240, 220), font=sub_font)
+        draw.text((card_x + card_w // 2, y), line2, fill=(200, 220, 240, 220), font=sub_font)
+        y += 42
+
+        # Wind / Visibility row
+        line3 = f"{wind_dir}  风力 {wind_scale}级"
+        line4 = f"能见度 {vis}km"
+        draw.text((card_x + padding_x, y), line3, fill=(190, 205, 220, 220), font=sub_font)
+        draw.text((card_x + card_w // 2, y), line4, fill=(190, 205, 220, 220), font=sub_font)
+
+        composed = Image.alpha_composite(base, overlay).convert("RGB")
+        image.paste(composed)
+
+    def _load_font(self, size):
+        # Try common fonts, fall back to default
+        candidates = []
+        if WEATHER_FONT_PATH:
+            candidates.append(WEATHER_FONT_PATH)
+        candidates += [
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/arphic/ukai.ttc",
+            "/usr/share/fonts/truetype/arphic/uming.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                try:
+                    return ImageFont.truetype(path, size=size)
+                except Exception:
+                    continue
+        return ImageFont.load_default()
+
+    def _auto_text_color(self, image, pos, width, height):
+        x, y = int(pos[0]), int(pos[1])
+        pad = 6
+        left = max(0, x - pad)
+        top = max(0, y - pad)
+        right = min(SCREEN_WIDTH, x + width + pad)
+        bottom = min(SCREEN_HEIGHT, y + height + pad)
+        region = image.crop((left, top, right, bottom)).convert("L")
+        mean = ImageStat.Stat(region).mean[0]
+        return (255, 255, 255) if mean < 128 else (0, 0, 0)
+
+    def get_image(self):
+        date_key = self.weather_service.today_key()
+        cached = self.cache_service.get(date_key, self.location)
+        if cached and cached.get("image_id"):
+            image_path = self.image_library_service.get_image_path(cached["image_id"])
+            if image_path:
+                return Image.open(image_path).convert("RGB")
+
+        # create placeholder and run async generation
+        placeholder = self.image_library_service.add_placeholder(
+            original_name=f"weather_{date_key}_{self.location}",
+            source_id=self.location,
+            style="weather",
+        )
+        self.cache_service.set(
+            date_key,
+            self.location,
+            {"image_id": placeholder["id"], "status": "processing"},
+        )
+
+        def _generate():
+            try:
+                weather = self.weather_service.get_today_weather(self.location)
+                now = weather.get("now", {})
+                weather_text = now.get("text", "未知")
+                temp = now.get("temp", "--")
+                wind_dir = now.get("windDir", "")
+                wind_scale = now.get("windScale", "")
+                humidity = now.get("humidity", "")
+                vis = now.get("vis", "")
+                update_time = weather.get("updateTime", "")
+                date_text = update_time.split("T")[0] if update_time else self.weather_service.today_key()
+
+                prompt = self._build_prompt(weather_text, temp)
+                background = self.image_gen_service.generate_image(
+                    prompt, display_size=(SCREEN_WIDTH, SCREEN_HEIGHT)
+                )
+                self._draw_weather_text(
+                    background,
+                    date_text,
+                    weather_text,
+                    temp,
+                    humidity,
+                    wind_dir,
+                    wind_scale,
+                    vis,
+                )
+
+                self.image_library_service.update_item(
+                    placeholder["id"],
+                    {"status": "ready", "error": None},
+                    image=background,
+                )
+                self.cache_service.set(
+                    date_key,
+                    self.location,
+                    {"image_id": placeholder["id"], "status": "ready"},
+                )
+            except Exception as e:
+                self.image_library_service.update_item(
+                    placeholder["id"],
+                    {"status": "failed", "error": str(e)},
+                )
+                self.cache_service.set(
+                    date_key,
+                    self.location,
+                    {"image_id": placeholder["id"], "status": "failed"},
+                )
+
+        threading.Thread(target=_generate, daemon=True).start()
+
+        image_path = self.image_library_service.get_image_path(placeholder["id"])
+        return Image.open(image_path).convert("RGB")
+
+    def to_dict(self):
+        base = super().to_dict()
+        base["location"] = self.location
+        return base
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            data.get("name", "Weather DU"),
+            data.get("location", ""),
+            data.get("display_time", 30),
+        )

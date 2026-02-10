@@ -2,15 +2,16 @@
 
 ## 项目简介
 
-Paper Pi 是一个基于 Flask 开发的墨水屏智能应用系统，支持多种显示单元类型，包括空单元、图片单元和文生图单元。系统集成了阿里云 DashScope API，使用先进的 LLM 技术优化用户提示词并生成高质量图片，为墨水屏提供丰富的内容展示能力。
+Paper Pi 是一个基于 Flask 开发的墨水屏智能应用系统，支持多种显示单元类型，包括空单元、图片单元、文生图单元和天气单元。系统集成了阿里云 DashScope API，使用先进的 LLM 技术优化用户提示词并生成高质量图片，为墨水屏提供丰富的内容展示能力。
 
 ## 核心功能
 
 ### 1. 显示单元 (Display Unit)
 
 - **空单元**：生成白色图片用于刷新墨水屏幕
-- **图片单元**：显示静态图片，默认显示10秒
+- **图片单元**：从图片库选择静态图片显示，支持颜色扩散算法
 - **文生图单元**：使用 LLM 优化用户提示词，生成图片并显示
+- **天气单元**：根据地理位置获取今日天气，生成新海诚风格背景并叠加天气信息（当天首次生成并缓存）
 
 ### 2. 播放列表管理
 
@@ -18,13 +19,20 @@ Paper Pi 是一个基于 Flask 开发的墨水屏智能应用系统，支持多�
 - 可将多个显示单元组合为一个播放列表
 - 支持编辑和删除播放列表
 
-### 3. 后台管理系统
+### 3. 图片库
+
+- 支持上传任意图片并自动转换为 800x480 BMP
+- 支持批量管理（批量选择与删除）
+- 支持图片详情页查看存储路径与时间
+- 支持风格化生成（油画/水彩/宫崎骏）并保存副本
+
+### 4. 后台管理系统
 
 - 科技感十足的前端界面
 - 支持显示单元的创建、编辑、删除
 - 支持播放列表的管理
 
-### 4. 数据持久化
+### 5. 数据持久化
 
 - 将显示单元和播放列表数据保存到本地 JSON 文件
 - 应用重启后数据不丢失
@@ -51,6 +59,7 @@ paper-pi/
 ├── lib/                # 第三方库
 │   └── waveshare_epd/  # 墨水屏驱动库
 └── app/
+    ├── config.py        # 统一配置
     ├── __init__.py
     ├── controllers/    # 控制器
     │   └── api_controller.py
@@ -66,6 +75,11 @@ paper-pi/
     ├── services/       # 服务
     │   ├── llm_service.py
     │   ├── image_gen_service.py
+    │   ├── image_gen_queue_service.py
+    │   ├── image_library_service.py
+    │   ├── image_processing_service.py
+    │   ├── weather_service.py
+    │   ├── weather_cache_service.py
     │   └── storage_service.py
     ├── static/         # 静态文件
     │   ├── css/
@@ -125,6 +139,12 @@ RUN_MODE=debug
 # 屏幕尺寸配置
 SCREEN_WIDTH=800
 SCREEN_HEIGHT=480
+
+# 天气API配置
+WEATHER_API_HOST=your_weather_api_host
+WEATHER_PEM_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+WEATHER_SUB_ID=your_sub_id
+WEATHER_KID_ID=your_kid_id
 ```
 
 > **注意**：请将 `your_dashscope_api_key_here` 替换为您的实际阿里云 DashScope API 密钥。
@@ -175,6 +195,8 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 
 - **首页**：`http://127.0.0.1:5000/`
 - **后台管理**：`http://127.0.0.1:5000/admin`
+- **图片库**：`http://127.0.0.1:5000/library`
+- **文生图**：`http://127.0.0.1:5000/text2image`
 
 ## 使用指南
 
@@ -202,6 +224,12 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 3. 系统会使用 LLM 优化提示词，然后调用阿里云文生图 API 生成图片
 4. 生成的图片会在墨水屏上显示
 
+### 4. 天气单元
+
+1. 创建天气显示单元
+2. 填写地理位置（location code，例如 `101010100`）
+3. 当日首次调用会生成背景图并缓存，后续调用直接复用
+
 ## API 端点
 
 ### 显示单元 API
@@ -210,6 +238,7 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 - `POST /api/display-units`：创建新的显示单元
 - `PUT /api/display-units/<du_id>`：更新显示单元
 - `DELETE /api/display-units/<du_id>`：删除显示单元
+- `GET /api/display-units/<du_id>/preview`：预览显示单元
 
 ### 播放列表 API
 
@@ -218,11 +247,28 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 - `PUT /api/playlists/<playlist_id>`：更新播放列表
 - `DELETE /api/playlists/<playlist_id>`：删除播放列表
 
+### 测试显示 API
+
+- `POST /api/test-display`：测试显示功能（根据类型显示并返回结果）
+
+### 图片库 API
+
+- `GET /api/image-library`：获取图片库列表
+- `GET /api/image-library/<image_id>`：获取图片详情
+- `GET /api/image-library/<image_id>/file`：获取图片文件
+- `POST /api/image-library/upload`：上传图片到图片库
+- `POST /api/image-library/batch-delete`：批量删除图片
+- `POST /api/image-library/<image_id>/stylize`：风格化图片（异步）
+
+### 预览 API
+
+- `POST /api/image-preview`：根据图片库ID生成预览（支持颜色扩散）
+
 ## 技术细节
 
 ### 1. 墨水屏驱动
 
-系统使用 `lib/waveshare_epd/epd7in3e.py` 中的 `EPD_WIDTH` 和 `EPD_HEIGHT` 常量来确定图像尺寸，确保生成的图片适合 7.3 英寸墨水屏的分辨率（800x480）。
+系统使用 `.env` 中的 `SCREEN_WIDTH` 和 `SCREEN_HEIGHT` 来确定图像尺寸，默认适配 7.3 英寸墨水屏分辨率（800x480）。
 
 ### 2. LLM 优化提示词
 
@@ -230,7 +276,19 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 
 ### 3. 文生图生成
 
-使用阿里云 DashScope API 的 `wan2.6-t2i` 模型生成图片，支持中英文提示词，生成高质量的图像。
+使用阿里云 DashScope API 的 `qwen-image-max` 模型生成图片，支持中英文提示词，生成高质量的图像。
+
+### 4. 文生图队列
+
+文生图请求通过队列统一排队执行，避免并发冲突。
+
+### 4. 配置加载
+
+所有环境变量通过 `app/config.py` 统一加载并提供给各模块使用，避免重复读取配置。
+
+### 5. 日志
+
+外部 API 调用会记录到 `LOG/api.log`。
 
 ## 故障排除
 
@@ -245,10 +303,11 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 - 确保 `DASHSCOPE_API_KEY` 配置正确
 - 确保 API 密钥有足够的权限调用相应的模型
 - 检查网络连接是否正常
+- 检查 `WEATHER_PEM_KEY/WEATHER_SUB_ID/WEATHER_KID_ID` 是否正确配置
 
 ### 3. 应用启动失败
 
-- 检查 `run.py` 文件中的模板和静态文件路径配置
+- 检查 `.env` 中 `SECRET_KEY`、`DASHSCOPE_API_KEY`、`RUN_MODE` 等配置
 - 确保所有依赖都已正确安装
 - 查看终端输出的错误信息，根据错误提示进行排查
 

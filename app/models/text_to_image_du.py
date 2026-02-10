@@ -1,15 +1,13 @@
-from app.models.display_unit import DisplayUnit
+from app.models.display_unit import DisplayUnit, register_display_unit
 from app.services.llm_service import LLMServices
 from app.services.image_gen_service import ImageGenService
-import os
-from dotenv import load_dotenv
+from app.services.image_library_service import ImageLibraryService
+from app.services.weather_cache_service import WeatherCacheService
+from app.config import SCREEN_WIDTH, SCREEN_HEIGHT
+from PIL import Image
+from datetime import datetime
 
-load_dotenv()
-
-# 从配置中获取屏幕尺寸
-SCREEN_WIDTH = int(os.getenv('SCREEN_WIDTH', '800'))
-SCREEN_HEIGHT = int(os.getenv('SCREEN_HEIGHT', '480'))
-
+@register_display_unit
 class TextToImageDisplayUnit(DisplayUnit):
     """文生图显示单元，使用LLM优化prompt并生成图片"""
     
@@ -25,21 +23,38 @@ class TextToImageDisplayUnit(DisplayUnit):
         self.llm_service = LLMServices()
         self.image_gen_service = ImageGenService()
         self.generated_image = None
+        self.cache_service = WeatherCacheService()
+        self.image_library_service = ImageLibraryService()
+        self.last_prompt = user_prompt
     
     def get_image(self):
         """
         获取生成的图片
         :return: PIL.Image对象
         """
-        if self.generated_image is None:
-            # 优化prompt
-            optimized_prompt = self.llm_service.optimize_prompt(self.user_prompt)
-            print(f"Optimized prompt: {optimized_prompt}")
-            
-            # 生成图片，使用配置文件中定义的尺寸
-            self.generated_image = self.image_gen_service.generate_image(optimized_prompt, display_size=(SCREEN_WIDTH, SCREEN_HEIGHT))
-        
-        return self.generated_image
+        today = datetime.now().strftime("%Y-%m-%d")
+        cache_key = f"text2image:{self.name}:{self.user_prompt}"
+        cached = self.cache_service.get(today, cache_key)
+
+        # 如果提示词变更，立刻失效缓存
+        if self.user_prompt != self.last_prompt:
+            cached = None
+            self.last_prompt = self.user_prompt
+
+        if cached and cached.get("image_id"):
+            image_path = self.image_library_service.get_image_path(cached["image_id"])
+            if image_path:
+                return Image.open(image_path).convert("RGB")
+
+        # 优化prompt
+        optimized_prompt = self.llm_service.optimize_prompt(self.user_prompt)
+        print(f"Optimized prompt: {optimized_prompt}")
+
+        # 生成图片，使用配置文件中定义的尺寸
+        image = self.image_gen_service.generate_image(optimized_prompt, display_size=(SCREEN_WIDTH, SCREEN_HEIGHT))
+        item = self.image_library_service.add_pil_image(image, original_name=f"text2image_{today}")
+        self.cache_service.set(today, cache_key, {"image_id": item["id"]})
+        return image
     
     def to_dict(self):
         """
@@ -49,3 +64,11 @@ class TextToImageDisplayUnit(DisplayUnit):
         base_dict = super().to_dict()
         base_dict['user_prompt'] = self.user_prompt
         return base_dict
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            data.get("name", "每日一图"),
+            data.get("user_prompt", ""),
+            data.get("display_time", 30),
+        )

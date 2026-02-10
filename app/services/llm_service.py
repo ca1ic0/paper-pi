@@ -1,8 +1,5 @@
-import os
 from openai import OpenAI
-from dotenv import load_dotenv
-
-load_dotenv()
+from app.config import DASHSCOPE_API_KEY, DASHSCOPE_COMPAT_BASE_URL
 
 class LLMServices:
     """LLM服务类，用于优化用户prompt"""
@@ -11,8 +8,8 @@ class LLMServices:
         """
         初始化LLM服务
         """
-        self.api_key = os.getenv('DASHSCOPE_API_KEY')
-        self.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        self.api_key = DASHSCOPE_API_KEY
+        self.base_url = DASHSCOPE_COMPAT_BASE_URL
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,

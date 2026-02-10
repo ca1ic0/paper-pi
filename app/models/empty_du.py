@@ -1,14 +1,8 @@
-from app.models.display_unit import DisplayUnit
+from app.models.display_unit import DisplayUnit, register_display_unit
+from app.config import SCREEN_WIDTH, SCREEN_HEIGHT
 from PIL import Image
-import os
-from dotenv import load_dotenv
 
-load_dotenv()
-
-# 从配置中获取屏幕尺寸
-SCREEN_WIDTH = int(os.getenv('SCREEN_WIDTH', '800'))
-SCREEN_HEIGHT = int(os.getenv('SCREEN_HEIGHT', '480'))
-
+@register_display_unit
 class EmptyDisplayUnit(DisplayUnit):
     """空显示单元，用于刷新墨水屏幕的白色图片"""
     
@@ -28,6 +22,13 @@ class EmptyDisplayUnit(DisplayUnit):
         # 使用配置文件中定义的尺寸生成白色图片
         image = Image.new('RGB', (SCREEN_WIDTH, SCREEN_HEIGHT), color='white')
         return image
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            data.get("name", "Empty DU"),
+            data.get("display_time", 1),
+        )
     
     def to_dict(self):
         """

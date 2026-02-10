@@ -1,7 +1,10 @@
 {
-  "2": {
-    "id": "2",
-    "name": "Playlist",
-    "display_units": []
+  "3": {
+    "id": "3",
+    "name": "Playlist2",
+    "display_units": [
+      "37",
+      "38"
+    ]
   }
 }

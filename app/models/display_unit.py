@@ -31,3 +31,19 @@ class DisplayUnit(ABC):
             'display_time': self.display_time,
             'type': self.__class__.__name__
         }
+
+
+DISPLAY_UNIT_REGISTRY = {}
+
+
+def register_display_unit(cls):
+    DISPLAY_UNIT_REGISTRY[cls.__name__] = cls
+    return cls
+
+
+def create_display_unit_from_dict(data):
+    du_type = data.get("type")
+    cls = DISPLAY_UNIT_REGISTRY.get(du_type)
+    if cls is None:
+        return None
+    return cls.from_dict(data)

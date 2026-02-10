@@ -2,11 +2,11 @@ import os
 import requests
 from PIL import Image
 from io import BytesIO
-from dotenv import load_dotenv
 import dashscope
 from dashscope import MultiModalConversation
-
-load_dotenv()
+from app.config import DASHSCOPE_API_KEY, DASHSCOPE_HTTP_BASE_URL
+from app.services.logging_service import get_api_logger
+from app.services.image_gen_queue_service import get_image_gen_queue
 
 class ImageGenService:
     """图片生成服务类，用于调用图片生成API"""
@@ -15,11 +15,20 @@ class ImageGenService:
         """
         初始化图片生成服务
         """
-        self.api_key = os.getenv('DASHSCOPE_API_KEY')
+        self.api_key = DASHSCOPE_API_KEY
         # 设置API URL
-        dashscope.base_http_api_url = 'https://dashscope.aliyuncs.com/api/v1'
+        dashscope.base_http_api_url = DASHSCOPE_HTTP_BASE_URL
     
     def generate_image(self, prompt, size="1664*928", display_size=(800, 480)):
+        task = get_image_gen_queue().submit(
+            self._generate_image_sync,
+            prompt,
+            size=size,
+            display_size=display_size,
+        )
+        return task.wait()
+
+    def _generate_image_sync(self, prompt, size="1664*928", display_size=(800, 480)):
         """
         根据prompt生成图片
         :param prompt: 图片描述
@@ -55,11 +64,14 @@ class ImageGenService:
             )
             
             # 检查响应状态
+            logger = get_api_logger()
+            logger.info(f"DASHSCOPE_IMAGE_GEN status={response.status_code} model=qwen-image-max")
             if response.status_code == 200:
                 # 解析响应
                 image_url = response.output.choices[0].message.content[0]['image']
                 
                 # 下载图片
+                logger.info(f"DASHSCOPE_IMAGE_URL url={image_url}")
                 image_response = requests.get(image_url)
                 image_response.raise_for_status()
                 
@@ -87,6 +99,7 @@ class ImageGenService:
                 
                 return resized_image
             else:
+                logger.error(f"DASHSCOPE_IMAGE_GEN_ERROR code={response.code} message={response.message}")
                 print(f"HTTP返回码：{response.status_code}")
                 print(f"错误码：{response.code}")
                 print(f"错误信息：{response.message}")
@@ -98,6 +111,15 @@ class ImageGenService:
             return Image.new('RGB', display_size, color='white')
     
     def generate_image_to_bmp(self, prompt, size="1664*928", display_size=(800, 480)):
+        task = get_image_gen_queue().submit(
+            self._generate_image_to_bmp_sync,
+            prompt,
+            size=size,
+            display_size=display_size,
+        )
+        return task.wait()
+
+    def _generate_image_to_bmp_sync(self, prompt, size="1664*928", display_size=(800, 480)):
         """
         根据prompt生成图片并保存为bmp格式到pic文件夹
         :param prompt: 图片描述
@@ -133,11 +155,14 @@ class ImageGenService:
             )
             
             # 检查响应状态
+            logger = get_api_logger()
+            logger.info(f"DASHSCOPE_IMAGE_GEN status={response.status_code} model=qwen-image-max")
             if response.status_code == 200:
                 # 解析响应
                 image_url = response.output.choices[0].message.content[0]['image']
                 
                 # 下载图片
+                logger.info(f"DASHSCOPE_IMAGE_URL url={image_url}")
                 image_response = requests.get(image_url)
                 image_response.raise_for_status()
                 
@@ -160,6 +185,7 @@ class ImageGenService:
                 
                 return resized_image, bmp_filename
             else:
+                logger.error(f"DASHSCOPE_IMAGE_GEN_ERROR code={response.code} message={response.message}")
                 print(f"HTTP返回码：{response.status_code}")
                 print(f"错误码：{response.code}")
                 print(f"错误信息：{response.message}")

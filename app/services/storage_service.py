@@ -1,5 +1,6 @@
 import json
 import os
+from app.config import BASE_DIR
 
 class StorageService:
     """存储服务类，用于持久化存储display units和playlists"""
@@ -8,7 +9,7 @@ class StorageService:
         """
         初始化存储服务
         """
-        self.storage_dir = 'storage'
+        self.storage_dir = os.path.join(BASE_DIR, "storage")
         self.du_file = os.path.join(self.storage_dir, 'display_units.json')
         self.playlist_file = os.path.join(self.storage_dir, 'playlists.json')
         

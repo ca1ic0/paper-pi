@@ -132,12 +132,13 @@
             <nav class="nav">
                 <a href="/" class="nav-link">首页</a>
                 <a href="/admin" class="nav-link">后台管理</a>
+                <a href="/library" class="nav-link">图片库</a>
                 <a href="/text2image" class="nav-link active">文生图</a>
             </nav>
         </header>
         
         <main class="main">
-            <div class="text2image-container">
+            <div class="text2image-container reveal" style="--i: 1;">
                 <h3>文生图功能</h3>
                 <p class="description">输入图片描述，生成对应的图片并保存为BMP格式</p>
                 
@@ -163,6 +164,7 @@
                         </div>
                         <div class="result-info">
                             <p id="result-path">保存路径：</p>
+                            <p id="result-library">图片库：未保存</p>
                             <p id="result-time">生成时间：</p>
                             <button id="preview-on-epaper" class="btn btn-primary" style="margin-top: 15px;">墨水屏预览</button>
                         </div>
@@ -186,6 +188,7 @@
         });
         
         function initText2ImagePage() {
+            document.body.classList.add('is-loaded');
             const form = document.getElementById('text2image-form');
             const resultContainer = document.getElementById('result-container');
             const loading = document.getElementById('loading');
@@ -194,6 +197,7 @@
             const resultImage = document.getElementById('result-image');
             const resultPath = document.getElementById('result-path');
             const resultTime = document.getElementById('result-time');
+            const resultLibrary = document.getElementById('result-library');
             const previewBtn = document.getElementById('preview-on-epaper');
             const previewStatus = document.getElementById('preview-status');
             
@@ -237,13 +241,19 @@
                         // 显示结果
                         resultImage.src = data.image_url;
                         resultPath.textContent = `保存路径：${data.save_path}`;
+                        if (data.image_id) {
+                            resultLibrary.textContent = `图片库：已保存（ID: ${data.image_id}）`;
+                        } else {
+                            resultLibrary.textContent = '图片库：未保存';
+                        }
                         resultTime.textContent = `生成时间：${new Date().toLocaleString()}`;
                         resultContent.style.display = 'block';
                         
                         // 保存当前图片数据
                         currentImageData = {
                             image_url: data.image_url,
-                            save_path: data.save_path
+                            save_path: data.save_path,
+                            image_id: data.image_id || null
                         };
                     }
                 })
@@ -274,6 +284,7 @@
                     },
                     body: JSON.stringify({
                         type: 'ImageDisplayUnit',
+                        image_id: currentImageData.image_id || null,
                         image_path: currentImageData.save_path
                     })
                 })

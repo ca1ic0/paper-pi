@@ -1,6 +1,9 @@
+from app.models.display_unit import create_display_unit_from_dict
 from app.models.empty_du import EmptyDisplayUnit
 from app.models.image_du import ImageDisplayUnit
 from app.models.text_to_image_du import TextToImageDisplayUnit
+from app.models.weather_du import WeatherDisplayUnit
+from app.models.poetry_du import PoetryDisplayUnit
 from app.models.playlist import Playlist
 from app.services.storage_service import StorageService
 import base64
@@ -31,13 +34,8 @@ class APIController:
         
         for du_id, du_data in serializable_du.items():
             # 重建display unit对象
-            if du_data['type'] == 'EmptyDisplayUnit':
-                du = EmptyDisplayUnit(du_data['name'], du_data['display_time'])
-            elif du_data['type'] == 'ImageDisplayUnit':
-                du = ImageDisplayUnit(du_data['name'], du_data['image_path'], du_data['display_time'])
-            elif du_data['type'] == 'TextToImageDisplayUnit':
-                du = TextToImageDisplayUnit(du_data['name'], du_data['user_prompt'], du_data['display_time'])
-            else:
+            du = create_display_unit_from_dict(du_data)
+            if du is None:
                 continue
             
             self.display_units[du_id] = du
@@ -84,13 +82,8 @@ class APIController:
         :param data: display unit数据
         :return: 创建的display unit
         """
-        if data['type'] == 'EmptyDisplayUnit':
-            du = EmptyDisplayUnit(data['name'], data.get('display_time', 1))
-        elif data['type'] == 'ImageDisplayUnit':
-            du = ImageDisplayUnit(data['name'], data['image_path'], data.get('display_time', 10))
-        elif data['type'] == 'TextToImageDisplayUnit':
-            du = TextToImageDisplayUnit(data['name'], data['user_prompt'], data.get('display_time', 30))
-        else:
+        du = create_display_unit_from_dict(data)
+        if du is None:
             return None
         
         du_id = str(self.du_counter)
@@ -125,6 +118,10 @@ class APIController:
         # 更新特定类型的属性
         if isinstance(du, ImageDisplayUnit) and 'image_path' in data:
             du.image_path = data['image_path']
+        if isinstance(du, ImageDisplayUnit) and 'image_id' in data:
+            du.image_id = data['image_id']
+        if isinstance(du, ImageDisplayUnit) and 'enable_color_diffusion' in data:
+            du.enable_color_diffusion = bool(data['enable_color_diffusion'])
         elif isinstance(du, TextToImageDisplayUnit) and 'user_prompt' in data:
             du.user_prompt = data['user_prompt']
             du.generated_image = None  # 重置生成的图片
@@ -195,6 +192,17 @@ class APIController:
         :return: playlists列表
         """
         return [playlist.to_dict() for playlist in self.playlists.values()]
+
+    def get_playlist(self, playlist_id):
+        """
+        获取单个playlist
+        :param playlist_id: playlist ID
+        :return: playlist字典
+        """
+        playlist = self.playlists.get(playlist_id)
+        if playlist is None:
+            return None
+        return playlist.to_dict()
     
     def create_playlist(self, data):
         """

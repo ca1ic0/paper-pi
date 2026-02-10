@@ -1,13 +1,6 @@
-import os
 import matplotlib.pyplot as plt
 from PIL import Image
-from dotenv import load_dotenv
-
-load_dotenv()
-
-# 从配置中获取屏幕尺寸
-SCREEN_WIDTH = int(os.getenv('SCREEN_WIDTH', '800'))
-SCREEN_HEIGHT = int(os.getenv('SCREEN_HEIGHT', '480'))
+from app.config import RUN_MODE
 
 class DisplayService:
     """显示服务类，根据运行模式决定如何显示图像"""
@@ -16,7 +9,7 @@ class DisplayService:
         """
         初始化显示服务
         """
-        self.run_mode = os.getenv('RUN_MODE', 'debug')
+        self.run_mode = RUN_MODE
         self.epd = None
         
         # 仅在生产模式下导入墨水屏驱动
