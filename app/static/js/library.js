@@ -1,4 +1,13 @@
 var ui = window.PaperPiUI;
+let processingTicker = null;
+
+function navigateTo(url) {
+    if (window.PaperPiRouter && typeof window.PaperPiRouter.navigate === 'function') {
+        window.PaperPiRouter.navigate(url);
+        return;
+    }
+    window.location.href = url;
+}
 
 function initLibraryPage() {
     document.body.classList.add('is-loaded');
@@ -6,6 +15,13 @@ function initLibraryPage() {
     initBatchControls();
     initRefreshControl();
     loadImageLibrary({ showSkeleton: true });
+}
+
+function destroyLibraryPage() {
+    if (processingTicker) {
+        window.clearInterval(processingTicker);
+        processingTicker = null;
+    }
 }
 
 function initUploadControls() {
@@ -112,14 +128,24 @@ function renderLibraryGrid(images) {
 
     const batchMode = grid.classList.contains('batch-mode');
     images.forEach((item, idx) => {
+        const status = item.status || 'ready';
         const div = document.createElement('div');
-        div.className = 'library-item reveal';
+        div.className = `library-item reveal ${status === 'processing' ? 'is-processing' : ''} ${status === 'failed' ? 'is-failed' : ''}`;
         div.style.setProperty('--i', idx + 1);
         div.dataset.imageId = item.id;
+        const statusBadge = status === 'processing'
+            ? ''
+            : `<span class="library-status ${status}">${statusLabel(status)}</span>`;
         div.innerHTML = `
             <div class="library-thumb">
                 <img class="img-loading" loading="lazy" src="/api/image-library/${item.id}/file?t=${Date.now()}" alt="${escapeHtml(item.original_name)}">
-                <span class="library-status ${item.status || 'ready'}">${statusLabel(item.status)}</span>
+                <div class="library-processing-mask" aria-hidden="true">
+                    <span class="library-processing-chip">AI 生成中</span>
+                    <span class="library-processing-spinner"></span>
+                    <span class="library-processing-text">已等待 0 秒</span>
+                    <span class="library-processing-bar"><i style="width: 18%"></i></span>
+                </div>
+                ${statusBadge}
                 <label class="library-check">
                     <input type="checkbox" ${batchMode ? '' : 'disabled'}>
                     <span></span>
@@ -137,12 +163,13 @@ function renderLibraryGrid(images) {
                 div.classList.toggle('selected', checkbox.checked);
                 updateDeleteButton();
             } else {
-                window.location.href = `/library/${item.id}`;
+                navigateTo(`/library/${item.id}`);
             }
         });
         grid.appendChild(div);
     });
     attachImageLoadingHandlers(grid);
+    startProcessingTicker(grid);
 }
 
 function attachImageLoadingHandlers(root) {
@@ -164,6 +191,47 @@ function statusLabel(status) {
         return '失败';
     }
     return '';
+}
+
+function startProcessingTicker(root) {
+    if (processingTicker) {
+        window.clearInterval(processingTicker);
+        processingTicker = null;
+    }
+
+    const processingItems = Array.from(root.querySelectorAll('.library-item.is-processing'));
+    if (processingItems.length === 0) {
+        return;
+    }
+
+    const baseMin = ui.motionNumberVar ? ui.motionNumberVar('--pp-processing-progress-base-min', 14) : 14;
+    const baseMax = ui.motionNumberVar ? ui.motionNumberVar('--pp-processing-progress-base-max', 32) : 32;
+    const progressStep = ui.motionNumberVar ? ui.motionNumberVar('--pp-processing-progress-step', 4) : 4;
+    const tickMs = ui.motionMsVar ? ui.motionMsVar('--pp-processing-ticker-ms', 420) : 420;
+
+    const start = Date.now();
+    processingItems.forEach((item) => {
+        if (!item.dataset.progressBase) {
+            const span = Math.max(1, baseMax - baseMin);
+            item.dataset.progressBase = String(Math.floor(baseMin + Math.random() * span));
+        }
+    });
+    processingTicker = window.setInterval(() => {
+        const elapsed = Math.max(0, Math.floor((Date.now() - start) / 1000));
+        processingItems.forEach((item) => {
+            const textEl = item.querySelector('.library-processing-text');
+            const barEl = item.querySelector('.library-processing-bar > i');
+            const base = Number(item.dataset.progressBase || '20');
+            const progress = Math.min(95, base + elapsed * progressStep);
+
+            if (textEl) {
+                textEl.textContent = `AI 绘制中 · 已等待 ${elapsed} 秒`;
+            }
+            if (barEl) {
+                barEl.style.width = `${progress}%`;
+            }
+        });
+    }, tickMs);
 }
 
 function initBatchControls() {
@@ -278,7 +346,8 @@ function escapeHtml(text) {
 
 window.PaperPiPages = window.PaperPiPages || {};
 window.PaperPiPages.library = {
-    init: initLibraryPage
+    init: initLibraryPage,
+    destroy: destroyLibraryPage
 };
 
 window.addEventListener('DOMContentLoaded', () => {

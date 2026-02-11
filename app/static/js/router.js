@@ -172,6 +172,9 @@
             loadedScripts.add(abs);
         });
         setActiveNav(window.location.pathname);
+        window.PaperPiRouter = {
+            navigate: (url) => navigate(url, true)
+        };
         document.addEventListener('click', onNavClick);
         window.addEventListener('popstate', () => {
             navigate(window.location.href, false);

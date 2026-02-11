@@ -302,5 +302,40 @@
     "display_time": 10,
     "type": "PoetryDisplayUnit",
     "mood_prompt": ""
+  },
+  "52": {
+    "name": "",
+    "display_time": 10,
+    "type": "EmptyDisplayUnit"
+  },
+  "53": {
+    "name": "",
+    "display_time": 10,
+    "type": "WeatherDisplayUnit",
+    "location": "101010100"
+  },
+  "54": {
+    "name": "",
+    "display_time": 10,
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": ""
+  },
+  "55": {
+    "name": "",
+    "display_time": 10,
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": "\u5c71\u6c34"
+  },
+  "56": {
+    "name": "",
+    "display_time": 10,
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": ""
+  },
+  "57": {
+    "name": "",
+    "display_time": 10,
+    "type": "TextToImageDisplayUnit",
+    "user_prompt": "\u4e00\u53ea\u5c0f\u732b\u5728\u9633\u5149\u4e2d\u7761\u89c9"
   }
 }

@@ -198,6 +198,20 @@
         };
     }
 
+    function motionNumberVar(name, fallback) {
+        if (!name || typeof window === 'undefined' || !window.getComputedStyle) {
+            return fallback;
+        }
+        const root = document.documentElement;
+        const raw = window.getComputedStyle(root).getPropertyValue(name);
+        const value = Number.parseFloat(raw);
+        return Number.isFinite(value) ? value : fallback;
+    }
+
+    function motionMsVar(name, fallback) {
+        return motionNumberVar(name, fallback);
+    }
+
     let dialogQueue = Promise.resolve();
 
     function enqueueDialog(factory) {
@@ -332,6 +346,8 @@
         renderSkeleton,
         requestJSON,
         createWaitStateMachine,
+        motionNumberVar,
+        motionMsVar,
         confirm: confirmDialog,
         prompt: promptDialog
     };

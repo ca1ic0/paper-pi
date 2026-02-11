@@ -222,6 +222,7 @@ function loadPlaylists() {
 
         renderPlaylists(playlistList, playlists);
         initPlaylistDragAndDrop();
+        initPlaylistHorizontalScroll();
     })
     .catch(error => {
         console.error('Error loading playlists:', error);
@@ -322,7 +323,7 @@ function createPlaylistItemHTML(playlist) {
                 <div class="playlist-du-list">
                     ${playlist.display_units.length > 0 ? 
                         `
-                            <div class="playlist-du-items ${playlist.display_units.length < 10 ? 'no-scroll' : ''}" data-playlist-id="${playlist.id}">
+                            <div class="playlist-du-items" data-playlist-id="${playlist.id}" tabindex="0" aria-label="播放单元时间轴（可横向滚动）">
                                 ${displayItems}
                                 <div class="playlist-du-item add-item" data-action="add-du" data-playlist-id="${playlist.id}">
                                     <span>+</span>
@@ -331,7 +332,7 @@ function createPlaylistItemHTML(playlist) {
                             </div>
                         ` : 
                         `
-                            <div class="playlist-du-items">
+                            <div class="playlist-du-items" tabindex="0" aria-label="播放单元时间轴（可横向滚动）">
                                 <div class="playlist-du-item add-item" data-action="add-du" data-playlist-id="${playlist.id}">
                                     <span>+</span>
                                     <span>添加单元</span>
@@ -602,9 +603,10 @@ function setEditorPreviewState(previewWrap, state, text) {
     }
     if (state === 'ready') {
         machine.setSuccess(text || '预览生成完成', '可继续编辑当前单元');
+        const holdMs = window.PaperPiUI.motionMsVar ? window.PaperPiUI.motionMsVar('--pp-processing-success-hold-ms', 850) : 850;
         window.setTimeout(() => {
             previewWrap.classList.remove('is-ready');
-        }, 900);
+        }, holdMs);
         return;
     }
     if (state === 'error') {
@@ -630,7 +632,14 @@ function ensureEditorPreviewOverlay(previewWrap) {
     overlay = document.createElement('div');
     overlay.className = 'editor-preview-overlay';
     overlay.innerHTML = `
-        <span class="editor-preview-spinner" aria-hidden="true"></span>
+        <div class="editor-preview-visual" aria-hidden="true">
+            <div class="editor-preview-canvas">
+                <span class="editor-preview-line line-1"></span>
+                <span class="editor-preview-line line-2"></span>
+                <span class="editor-preview-line line-3"></span>
+            </div>
+            <span class="editor-preview-spinner"></span>
+        </div>
         <p class="editor-preview-text"></p>
         <p class="editor-preview-meta"></p>
     `;
@@ -648,6 +657,7 @@ function getEditorPreviewMachine(previewWrap) {
     const metaEl = overlay.querySelector('.editor-preview-meta');
 
     previewWrap.__waitMachine = window.PaperPiUI.createWaitStateMachine({
+        tickMs: window.PaperPiUI.motionMsVar ? window.PaperPiUI.motionMsVar('--pp-processing-ticker-ms', 420) : 420,
         onUpdate: ({ state, text, meta }) => {
             previewWrap.classList.remove('is-loading', 'is-ready', 'is-error');
 
@@ -734,6 +744,26 @@ function initPlaylistDragAndDrop() {
                 window.PaperPiUI.toast('更新播放顺序失败', 'error');
             });
         });
+    });
+}
+
+function initPlaylistHorizontalScroll() {
+    const containers = document.querySelectorAll('.playlist-du-items');
+    containers.forEach((container) => {
+        if (container.dataset.wheelBound === '1') {
+            return;
+        }
+        container.dataset.wheelBound = '1';
+        container.addEventListener('wheel', (e) => {
+            if (Math.abs(e.deltaY) < Math.abs(e.deltaX)) {
+                return;
+            }
+            if (container.scrollWidth <= container.clientWidth) {
+                return;
+            }
+            e.preventDefault();
+            container.scrollLeft += e.deltaY;
+        }, { passive: false });
     });
 }
 
