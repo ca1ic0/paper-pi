@@ -1,310 +1,49 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>文生图功能 - Paper Pi</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        .text2image-container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        
-        .text2image-form {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 30px;
-        }
-        
-        .text2image-form .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .text2image-form label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.8);
-        }
-        
-        .text2image-form textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.05);
-            color: #ffffff;
-            font-size: 14px;
-            resize: vertical;
-            min-height: 120px;
-        }
-        
-        .text2image-form textarea:focus {
-            outline: none;
-            border-color: #4f46e5;
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-        }
-        
-        .text2image-result {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            margin-bottom: 30px;
-        }
-        
-        .text2image-result h4 {
-            margin-bottom: 20px;
-            font-size: 18px;
-            font-weight: 600;
-        }
-        
-        .result-image {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        
-        .result-image img {
-            max-width: 100%;
-            max-height: 500px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .result-info {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            padding: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .result-info p {
-            margin: 0;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 14px;
-        }
-        
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .loading::after {
-            content: "";
-            width: 30px;
-            height: 30px;
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: #4f46e5;
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        .error {
-            background: rgba(220, 38, 38, 0.1);
-            border: 1px solid rgba(220, 38, 38, 0.3);
-            border-radius: 8px;
-            padding: 15px;
-            color: rgba(254, 226, 226, 0.9);
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header class="header">
-            <div class="logo">
-                <h1>Paper Pi</h1>
-                <span class="subtitle">墨水屏智能应用</span>
-            </div>
-            <nav class="nav">
-                <a href="/" class="nav-link">首页</a>
-                <a href="/admin" class="nav-link">后台管理</a>
-                <a href="/library" class="nav-link">图片库</a>
-                <a href="/text2image" class="nav-link active">文生图</a>
-            </nav>
-        </header>
-        
-        <main class="main">
-            <div class="text2image-container reveal" style="--i: 1;">
-                <h3>文生图功能</h3>
-                <p class="description">输入图片描述，生成对应的图片并保存为BMP格式</p>
-                
-                <div class="text2image-form">
-                    <form id="text2image-form">
-                        <div class="form-group">
-                            <label for="prompt">图片描述</label>
-                            <textarea id="prompt" name="prompt" placeholder="请输入图片描述，例如：一只可爱的小猫在阳光下睡觉"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary">生成图片</button>
-                    </form>
+{% extends "base.html" %}
+
+{% block title %}文生图功能 - Paper Pi{% endblock %}
+{% block nav_text2image %}active{% endblock %}
+
+{% block content %}
+<main class="main">
+    <section class="text2image-container reveal" style="--i: 1;">
+        <div class="text2image-header">
+            <h3>文生图功能</h3>
+            <p class="description">输入图片描述，生成图像并自动入库。</p>
+        </div>
+
+        <div class="text2image-form panel-card">
+            <form id="text2image-form">
+                <div class="form-group">
+                    <label for="prompt">图片描述</label>
+                    <textarea id="prompt" name="prompt" placeholder="请输入图片描述，例如：一只可爱的小猫在阳光下睡觉"></textarea>
                 </div>
-                
-                <div class="text2image-result" id="result-container" style="display: none;">
-                    <h4>生成结果</h4>
-                    <div id="loading" style="display: none;">
-                        <div class="loading"></div>
-                    </div>
-                    <div id="error" class="error" style="display: none;"></div>
-                    <div id="result-content" style="display: none;">
-                        <div class="result-image">
-                            <img id="result-image" src="" alt="生成的图片">
-                        </div>
-                        <div class="result-info">
-                            <p id="result-path">保存路径：</p>
-                            <p id="result-library">图片库：未保存</p>
-                            <p id="result-time">生成时间：</p>
-                            <button id="preview-on-epaper" class="btn btn-primary" style="margin-top: 15px;">墨水屏预览</button>
-                        </div>
-                        <div id="preview-status" style="margin-top: 15px; display: none;"></div>
-                    </div>
+                <button type="submit" class="btn btn-primary">生成图片</button>
+            </form>
+        </div>
+
+        <div class="text2image-result panel-card" id="result-container" style="display: none;">
+            <h4>生成结果</h4>
+            <div id="loading" style="display: none;">
+                <div class="loading"></div>
+            </div>
+            <div id="error" class="error" style="display: none;"></div>
+            <div id="result-content" style="display: none;">
+                <div class="result-image">
+                    <img id="result-image" src="" alt="生成的图片">
                 </div>
+                <div class="result-info">
+                    <p id="result-path">保存路径：</p>
+                    <p id="result-library">图片库：未保存</p>
+                    <p id="result-time">生成时间：</p>
+                    <button id="preview-on-epaper" class="btn btn-primary" type="button">墨水屏预览</button>
+                </div>
+                <div id="preview-status" class="preview-status" style="display: none;"></div>
             </div>
-        </main>
-        
-        <footer class="footer">
-            <div class="footer-content">
-                <p>&copy; 2026 Paper Pi. 智能墨水屏应用系统</p>
-            </div>
-        </footer>
-    </div>
-    
-    <script>
-        // 页面加载完成后初始化
-        window.addEventListener('DOMContentLoaded', function() {
-            initText2ImagePage();
-        });
-        
-        function initText2ImagePage() {
-            document.body.classList.add('is-loaded');
-            const form = document.getElementById('text2image-form');
-            const resultContainer = document.getElementById('result-container');
-            const loading = document.getElementById('loading');
-            const error = document.getElementById('error');
-            const resultContent = document.getElementById('result-content');
-            const resultImage = document.getElementById('result-image');
-            const resultPath = document.getElementById('result-path');
-            const resultTime = document.getElementById('result-time');
-            const resultLibrary = document.getElementById('result-library');
-            const previewBtn = document.getElementById('preview-on-epaper');
-            const previewStatus = document.getElementById('preview-status');
-            
-            let currentImageData = null;
-            
-            form.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const prompt = document.getElementById('prompt').value.trim();
-                if (!prompt) {
-                    alert('请输入图片描述');
-                    return;
-                }
-                
-                // 显示结果容器和加载状态
-                resultContainer.style.display = 'block';
-                loading.style.display = 'block';
-                error.style.display = 'none';
-                resultContent.style.display = 'none';
-                
-                // 发送API请求
-                fetch('/api/text2image', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ prompt: prompt })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('API response:', data);
-                    
-                    // 隐藏加载状态
-                    loading.style.display = 'none';
-                    
-                    if (data.error) {
-                        // 显示错误信息
-                        error.textContent = data.error;
-                        error.style.display = 'block';
-                    } else if (data.image_url && data.save_path) {
-                        // 显示结果
-                        resultImage.src = data.image_url;
-                        resultPath.textContent = `保存路径：${data.save_path}`;
-                        if (data.image_id) {
-                            resultLibrary.textContent = `图片库：已保存（ID: ${data.image_id}）`;
-                        } else {
-                            resultLibrary.textContent = '图片库：未保存';
-                        }
-                        resultTime.textContent = `生成时间：${new Date().toLocaleString()}`;
-                        resultContent.style.display = 'block';
-                        
-                        // 保存当前图片数据
-                        currentImageData = {
-                            image_url: data.image_url,
-                            save_path: data.save_path,
-                            image_id: data.image_id || null
-                        };
-                    }
-                })
-                .catch(err => {
-                    console.error('Error:', err);
-                    loading.style.display = 'none';
-                    error.textContent = '生成图片失败，请稍后重试';
-                    error.style.display = 'block';
-                });
-            });
-            
-            // 墨水屏预览按钮点击事件
-            previewBtn.addEventListener('click', function() {
-                if (!currentImageData) {
-                    alert('请先生成图片');
-                    return;
-                }
-                
-                // 显示预览状态
-                previewStatus.style.display = 'block';
-                previewStatus.innerHTML = '<div class="loading"></div>';
-                
-                // 发送预览请求
-                fetch('/api/test-display', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        type: 'ImageDisplayUnit',
-                        image_id: currentImageData.image_id || null,
-                        image_path: currentImageData.save_path
-                    })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Preview response:', data);
-                    
-                    // 显示预览结果
-                    if (data.error) {
-                        previewStatus.innerHTML = `<div class="error">预览失败：${data.error}</div>`;
-                    } else {
-                        previewStatus.innerHTML = `<div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 15px; color: rgba(196, 254, 203, 0.9);">${data.message}</div>`;
-                    }
-                })
-                .catch(err => {
-                    console.error('Error:', err);
-                    previewStatus.innerHTML = '<div class="error">预览失败，请稍后重试</div>';
-                });
-            });
-        }
-    </script>
-</body>
-</html>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/text2image.js') }}"></script>
+{% endblock %}

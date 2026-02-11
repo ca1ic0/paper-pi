@@ -1,285 +1,260 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>后台管理 - Paper Pi</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header class="header">
-            <div class="logo">
-                <h1>Paper Pi</h1>
-                <span class="subtitle">后台管理系统</span>
-            </div>
-            <nav class="nav">
-                <a href="/" class="nav-link">首页</a>
-                <a href="/admin" class="nav-link active">后台管理</a>
-                <a href="/library" class="nav-link">图片库</a>
-                <a href="/text2image" class="nav-link">文生图</a>
-            </nav>
-        </header>
-        
-        <main class="main admin-main reveal" style="--i: 1;">
-            <div class="admin-header">
-                <h3>播放列表管理</h3>
-                <button class="btn btn-primary" id="add-playlist-btn">添加播放列表</button>
-            </div>
-            
-            <div class="playlist-list" id="playlist-list">
-                <!-- 播放列表将通过JavaScript动态添加 -->
-            </div>
+{% extends "base.html" %}
 
-            <div class="playlist-editor reveal" id="playlist-editor" style="--i: 2; display: none;">
-                <div class="playlist-editor-header">
-                    <h4>单元详情</h4>
-                    <button class="btn btn-secondary" id="close-editor-btn">关闭</button>
-                </div>
-                <div class="playlist-editor-body">
-                    <div class="editor-preview">
-                        <img id="editor-preview-img" src="" alt="预览图">
-                    </div>
-                    <div class="editor-fields">
-                        <div class="form-group">
-                            <label>类型</label>
-                            <input type="text" id="editor-type" disabled>
-                        </div>
-                        <div class="form-group">
-                            <label>名称</label>
-                            <input type="text" id="editor-name">
-                        </div>
-                        <div class="form-group">
-                            <label>显示时间（秒）</label>
-                            <input type="number" id="editor-display-time" min="1">
-                        </div>
-                        <div class="form-group" id="editor-prompt-group" style="display: none;">
-                            <label>提示词</label>
-                            <textarea id="editor-prompt" rows="3"></textarea>
-                        </div>
-                        <div class="form-group" id="editor-image-group" style="display: none;">
-                            <label>图片库ID</label>
-                            <input type="text" id="editor-image-id" disabled>
-                        </div>
-                        <div class="form-group" id="editor-diffusion-group" style="display: none;">
-                            <label class="checkbox-row">
-                                <input type="checkbox" id="editor-color-diffusion">
-                                启用颜色扩散算法（黑/白/红/绿/黄/蓝）
-                            </label>
-                        </div>
-                        <div class="form-group" id="editor-poetry-mood-group" style="display: none;">
-            <label for="edit-du-poetry-mood">情绪/主题（可选）</label>
-            <input type="text" id="edit-du-poetry-mood" name="mood_prompt">
-        </div>
-        <div class="editor-actions">
-                            <button class="btn btn-primary" id="editor-save-btn">保存修改</button>
-                        </div>
-                        <div id="editor-status" style="display: none;"></div>
-                    </div>
-                </div>
-            </div>
+{% block title %}后台管理 - Paper Pi{% endblock %}
+{% block page_subtitle %}后台管理系统{% endblock %}
+{% block nav_admin %}active{% endblock %}
 
-        </main>
-        
-        <footer class="footer">
-            <div class="footer-content">
-                <p>&copy; 2026 Paper Pi. 智能墨水屏应用系统</p>
-            </div>
-        </footer>
+{% block content %}
+<main class="main admin-main reveal" style="--i: 1;">
+    <div class="admin-header">
+        <h3>播放列表管理</h3>
+        <button class="btn btn-primary" id="add-playlist-btn">添加播放列表</button>
     </div>
-    
-    <!-- 添加显示单元模态框 -->
-    <div class="modal" id="add-du-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4>添加显示单元</h4>
-                <button class="close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="add-du-form">
-                    <div class="section-title">基础信息</div>
-                    <div class="modal-grid">
-                        <div class="form-group">
-                            <label for="du-name">名称</label>
-                            <input type="text" id="du-name" name="name" required>
-                        </div>
-                        <div class="form-group">
-                            <label>类型</label>
-                            <input type="hidden" id="du-type" name="type" value="EmptyDisplayUnit">
-                            <div class="type-card-grid" id="du-type-cards">
-                                <button type="button" class="type-card selected" data-value="EmptyDisplayUnit">
-                                    <div class="type-card-title">空单元</div>
-                                    <div class="type-card-desc">白屏刷新</div>
-                                </button>
-                                <button type="button" class="type-card" data-value="ImageDisplayUnit">
-                                    <div class="type-card-title">图片单元</div>
-                                    <div class="type-card-desc">图片库选择</div>
-                                </button>
-                                <button type="button" class="type-card" data-value="TextToImageDisplayUnit">
-                                    <div class="type-card-title">每日一图</div>
-                                    <div class="type-card-desc">每日更新</div>
-                                </button>
-                                <button type="button" class="type-card" data-value="WeatherDisplayUnit">
-                                    <div class="type-card-title">天气单元</div>
-                                    <div class="type-card-desc">每日缓存</div>
-                                </button>
-                                <button type="button" class="type-card" data-value="PoetryDisplayUnit">
-                                    <div class="type-card-title">唐诗绝句</div>
-                                    <div class="type-card-desc">即时生成</div>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="du-display-time">显示时间（秒）</label>
-                            <input type="number" id="du-display-time" name="display_time" min="1" value="10">
-                        </div>
-                    </div>
 
-                    <div class="section-title">图片与内容</div>
-                    <div class="form-group" id="image-library-group" style="display: none;">
-                        <label>选择图片（相册模式）</label>
-                        <input type="hidden" id="du-image-id" name="image_id">
-                        <div class="image-select-grid" id="du-image-grid">
-                            <!-- 图片选择网格将通过JS填充 -->
-                        </div>
-                        <div class="image-preview" id="du-image-preview" style="display: none;">
-                            <img id="du-image-preview-img" src="" alt="图片预览">
-                        </div>
-                        <div class="image-select-hint">
-                            没有合适的图片？去图片库上传。
-                            <a href="/library" class="inline-link">打开图片库</a>
-                        </div>
-                        <div class="form-group" style="margin-top: 12px;">
-                            <label class="checkbox-row">
-                                <input type="checkbox" id="du-color-diffusion">
-                                启用颜色扩散算法（黑/白/红/绿/黄/蓝）
-                            </label>
-                            <div class="hint-text">适配墨水屏有限色彩，提升观感。</div>
-                        </div>
-                    </div>
-                    <div class="form-group" id="user-prompt-group" style="display: none;">
-                        <label for="du-user-prompt">用户提示词</label>
-                        <textarea id="du-user-prompt" name="user_prompt" rows="3"></textarea>
-                    </div>
-                    <div class="form-group" id="weather-location-group" style="display: none;">
-                        <label for="du-weather-location">地理位置（location code）</label>
-                        <input type="text" id="du-weather-location" name="location" placeholder="例如：101010100">
-                        <div class="hint-text">示例：101010100（北京）。</div>
-                    </div>
-                    <div class="form-group" id="poetry-mood-group" style="display: none;">
-                        <label for="du-poetry-mood">情绪/主题（可选）</label>
-                        <input type="text" id="du-poetry-mood" name="mood_prompt" placeholder="例如：思乡 / 秋夜 / 山水">
-                        <div class="hint-text">不填写则使用默认绝句提示。</div>
-                    </div>
-                </form>
+    <div class="playlist-list" id="playlist-list">
+        <!-- 播放列表将通过JavaScript动态添加 -->
+    </div>
+
+    <div class="playlist-editor reveal" id="playlist-editor" style="--i: 2; display: none;">
+        <div class="playlist-editor-header">
+            <h4>单元详情</h4>
+            <button class="btn btn-secondary" id="close-editor-btn">关闭</button>
+        </div>
+        <div class="playlist-editor-body">
+            <div class="editor-preview">
+                <img id="editor-preview-img" src="" alt="预览图">
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancel-du-btn">取消</button>
-                <button class="btn btn-primary" id="save-du-btn">保存</button>
+            <div class="editor-fields">
+                <div class="form-group">
+                    <label>类型</label>
+                    <input type="text" id="editor-type" disabled>
+                </div>
+                <div class="form-group">
+                    <label>名称</label>
+                    <input type="text" id="editor-name">
+                </div>
+                <div class="form-group">
+                    <label>显示时间（秒）</label>
+                    <input type="number" id="editor-display-time" min="1">
+                </div>
+                <div class="form-group" id="editor-prompt-group" style="display: none;">
+                    <label>提示词</label>
+                    <textarea id="editor-prompt" rows="3"></textarea>
+                </div>
+                <div class="form-group" id="editor-image-group" style="display: none;">
+                    <label>图片库ID</label>
+                    <input type="text" id="editor-image-id" disabled>
+                </div>
+                <div class="form-group" id="editor-diffusion-group" style="display: none;">
+                    <label class="checkbox-row">
+                        <input type="checkbox" id="editor-color-diffusion">
+                        启用颜色扩散算法（黑/白/红/绿/黄/蓝）
+                    </label>
+                </div>
+                <div class="form-group" id="editor-poetry-mood-group" style="display: none;">
+                    <label for="edit-du-poetry-mood">情绪/主题（可选）</label>
+                    <input type="text" id="edit-du-poetry-mood" name="mood_prompt">
+                </div>
+                <div class="editor-actions">
+                    <button class="btn btn-primary" id="editor-save-btn">保存修改</button>
+                </div>
+                <div id="editor-status" style="display: none;"></div>
             </div>
         </div>
     </div>
-    
-    <!-- 编辑显示单元模态框 -->
-    <div class="modal" id="edit-du-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4>编辑显示单元</h4>
-                <button class="close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="edit-du-form">
-                    <input type="hidden" id="edit-du-id" name="du_id">
-                    <div class="form-group">
-                        <label for="edit-du-name">名称</label>
-                        <input type="text" id="edit-du-name" name="name" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit-du-type">类型</label>
-                        <select id="edit-du-type" name="type" disabled>
-                            <option value="EmptyDisplayUnit">空单元</option>
-                            <option value="ImageDisplayUnit">图片单元</option>
-                            <option value="TextToImageDisplayUnit">文生图单元</option>
-                            <option value="WeatherDisplayUnit">天气单元</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="edit-image-path-group" style="display: none;">
-                        <label for="edit-du-image-path">图片路径</label>
-                        <input type="text" id="edit-du-image-path" name="image_path">
-                    </div>
-                        <div class="form-group" id="edit-user-prompt-group" style="display: none;">
-                            <label for="edit-du-user-prompt">用户提示词</label>
-                            <textarea id="edit-du-user-prompt" name="user_prompt" rows="3"></textarea>
-                        </div>
-                        <div class="form-group" id="edit-weather-location-group" style="display: none;">
-                            <label for="edit-du-weather-location">地理位置（location code）</label>
-                            <input type="text" id="edit-du-weather-location" name="location">
-                        </div>
-                    <div class="form-group">
-                        <label for="edit-du-display-time">显示时间（秒）</label>
-                        <input type="number" id="edit-du-display-time" name="display_time" min="1" value="10">
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancel-edit-du-btn">取消</button>
-                <button class="btn btn-primary" id="save-edit-du-btn">保存</button>
-            </div>
+</main>
+
+<!-- 添加显示单元模态框 -->
+<div class="modal" id="add-du-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>添加显示单元</h4>
+            <button class="close-btn">&times;</button>
         </div>
-    </div>
-    
-    <!-- 添加播放列表模态框 -->
-    <div class="modal" id="add-playlist-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4>添加播放列表</h4>
-                <button class="close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="add-playlist-form">
+        <div class="modal-body">
+            <form id="add-du-form">
+                <div class="section-title">基础信息</div>
+                <div class="modal-grid">
                     <div class="form-group">
-                        <label for="playlist-name">名称</label>
-                        <input type="text" id="playlist-name" name="name" required>
+                        <label for="du-name">名称</label>
+                        <input type="text" id="du-name" name="name" required>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" id="cancel-playlist-btn">取消</button>
-                <button class="btn btn-primary" id="save-playlist-btn">保存</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- 预览模态框 -->
-    <div class="modal" id="preview-modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4>显示单元预览</h4>
-                <button class="close-btn">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="preview-container">
-                    <div class="preview-loading" id="preview-loading">
-                        <p>加载预览中...</p>
+                    <div class="form-group">
+                        <label>类型</label>
+                        <input type="hidden" id="du-type" name="type" value="EmptyDisplayUnit">
+                        <div class="type-card-grid" id="du-type-cards">
+                            <button type="button" class="type-card selected" data-value="EmptyDisplayUnit">
+                                <div class="type-card-title">空单元</div>
+                                <div class="type-card-desc">白屏刷新</div>
+                            </button>
+                            <button type="button" class="type-card" data-value="ImageDisplayUnit">
+                                <div class="type-card-title">图片单元</div>
+                                <div class="type-card-desc">图片库选择</div>
+                            </button>
+                            <button type="button" class="type-card" data-value="TextToImageDisplayUnit">
+                                <div class="type-card-title">每日一图</div>
+                                <div class="type-card-desc">每日更新</div>
+                            </button>
+                            <button type="button" class="type-card" data-value="WeatherDisplayUnit">
+                                <div class="type-card-title">天气单元</div>
+                                <div class="type-card-desc">每日缓存</div>
+                            </button>
+                            <button type="button" class="type-card" data-value="PoetryDisplayUnit">
+                                <div class="type-card-title">唐诗绝句</div>
+                                <div class="type-card-desc">即时生成</div>
+                            </button>
+                        </div>
                     </div>
-                    <div class="preview-image" id="preview-image" style="display: none;">
-                        <img id="preview-img" src="" alt="预览图片">
-                    </div>
-                    <div class="preview-error" id="preview-error" style="display: none;">
-                        <p>预览加载失败</p>
+                    <div class="form-group">
+                        <label for="du-display-time">显示时间（秒）</label>
+                        <input type="number" id="du-display-time" name="display_time" min="1" value="10">
                     </div>
                 </div>
-                <div class="preview-info">
-                    <h5 id="preview-title">预览标题</h5>
-                    <p id="preview-description">预览描述</p>
+
+                <div class="section-title">图片与内容</div>
+                <div class="form-group" id="image-library-group" style="display: none;">
+                    <label>选择图片（相册模式）</label>
+                    <input type="hidden" id="du-image-id" name="image_id">
+                    <div class="image-select-grid" id="du-image-grid"></div>
+                    <div class="image-preview" id="du-image-preview" style="display: none;">
+                        <img id="du-image-preview-img" src="" alt="图片预览">
+                    </div>
+                    <div class="image-select-hint">
+                        没有合适的图片？去图片库上传。
+                        <a href="/library" class="inline-link">打开图片库</a>
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="du-color-diffusion">
+                            启用颜色扩散算法（黑/白/红/绿/黄/蓝）
+                        </label>
+                        <div class="hint-text">适配墨水屏有限色彩，提升观感。</div>
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-primary" id="close-preview-btn">关闭</button>
-            </div>
+                <div class="form-group" id="user-prompt-group" style="display: none;">
+                    <label for="du-user-prompt">用户提示词</label>
+                    <textarea id="du-user-prompt" name="user_prompt" rows="3"></textarea>
+                </div>
+                <div class="form-group" id="weather-location-group" style="display: none;">
+                    <label for="du-weather-location">地理位置（location code）</label>
+                    <input type="text" id="du-weather-location" name="location" placeholder="例如：101010100">
+                    <div class="hint-text">示例：101010100（北京）。</div>
+                </div>
+                <div class="form-group" id="poetry-mood-group" style="display: none;">
+                    <label for="du-poetry-mood">情绪/主题（可选）</label>
+                    <input type="text" id="du-poetry-mood" name="mood_prompt" placeholder="例如：思乡 / 秋夜 / 山水">
+                    <div class="hint-text">不填写则使用默认绝句提示。</div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancel-du-btn">取消</button>
+            <button class="btn btn-primary" id="save-du-btn">保存</button>
         </div>
     </div>
-    
-    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
-</body>
-</html>
+</div>
+
+<!-- 编辑显示单元模态框 -->
+<div class="modal" id="edit-du-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>编辑显示单元</h4>
+            <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="edit-du-form">
+                <input type="hidden" id="edit-du-id" name="du_id">
+                <div class="form-group">
+                    <label for="edit-du-name">名称</label>
+                    <input type="text" id="edit-du-name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-du-type">类型</label>
+                    <select id="edit-du-type" name="type" disabled>
+                        <option value="EmptyDisplayUnit">空单元</option>
+                        <option value="ImageDisplayUnit">图片单元</option>
+                        <option value="TextToImageDisplayUnit">文生图单元</option>
+                        <option value="WeatherDisplayUnit">天气单元</option>
+                    </select>
+                </div>
+                <div class="form-group" id="edit-image-path-group" style="display: none;">
+                    <label for="edit-du-image-path">图片路径</label>
+                    <input type="text" id="edit-du-image-path" name="image_path">
+                </div>
+                <div class="form-group" id="edit-user-prompt-group" style="display: none;">
+                    <label for="edit-du-user-prompt">用户提示词</label>
+                    <textarea id="edit-du-user-prompt" name="user_prompt" rows="3"></textarea>
+                </div>
+                <div class="form-group" id="edit-weather-location-group" style="display: none;">
+                    <label for="edit-du-weather-location">地理位置（location code）</label>
+                    <input type="text" id="edit-du-weather-location" name="location">
+                </div>
+                <div class="form-group">
+                    <label for="edit-du-display-time">显示时间（秒）</label>
+                    <input type="number" id="edit-du-display-time" name="display_time" min="1" value="10">
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancel-edit-du-btn">取消</button>
+            <button class="btn btn-primary" id="save-edit-du-btn">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 添加播放列表模态框 -->
+<div class="modal" id="add-playlist-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>添加播放列表</h4>
+            <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="add-playlist-form">
+                <div class="form-group">
+                    <label for="playlist-name">名称</label>
+                    <input type="text" id="playlist-name" name="name" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancel-playlist-btn">取消</button>
+            <button class="btn btn-primary" id="save-playlist-btn">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 预览模态框 -->
+<div class="modal" id="preview-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4>显示单元预览</h4>
+            <button class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="preview-container">
+                <div class="preview-loading" id="preview-loading">
+                    <p>加载预览中...</p>
+                </div>
+                <div class="preview-image" id="preview-image" style="display: none;">
+                    <img id="preview-img" src="" alt="预览图片">
+                </div>
+                <div class="preview-error" id="preview-error" style="display: none;">
+                    <p>预览加载失败</p>
+                </div>
+            </div>
+            <div class="preview-info">
+                <h5 id="preview-title">预览标题</h5>
+                <p id="preview-description">预览描述</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" id="close-preview-btn">关闭</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

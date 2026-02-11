@@ -99,7 +99,7 @@ function renderLibraryGrid(images) {
         div.dataset.imageId = item.id;
         div.innerHTML = `
             <div class="library-thumb">
-                <img src="/api/image-library/${item.id}/file" alt="${item.original_name}">
+                <img class="img-loading" loading="lazy" src="/api/image-library/${item.id}/file?t=${Date.now()}" alt="${item.original_name}">
                 <span class="library-status ${item.status || 'ready'}">${statusLabel(item.status)}</span>
                 <label class="library-check">
                     <input type="checkbox" ${batchMode ? '' : 'disabled'}>
@@ -122,6 +122,18 @@ function renderLibraryGrid(images) {
             }
         });
         grid.appendChild(div);
+    });
+    attachImageLoadingHandlers(grid);
+}
+
+function attachImageLoadingHandlers(root) {
+    const imgs = root.querySelectorAll('img.img-loading');
+    imgs.forEach(img => {
+        img.addEventListener('load', () => img.classList.remove('img-loading'), { once: true });
+        img.addEventListener('error', () => {
+            img.classList.remove('img-loading');
+            img.classList.add('img-error');
+        }, { once: true });
     });
 }
 

@@ -213,6 +213,43 @@
   "38": {
     "name": "\u7231\u4ed5\u8fbe",
     "display_time": 10,
-    "type": "PoetryDisplayUnit"
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": null
+  },
+  "39": {
+    "name": "",
+    "display_time": 10,
+    "type": "TextToImageDisplayUnit",
+    "user_prompt": "\u98ce\u666f"
+  },
+  "40": {
+    "name": "",
+    "display_time": 10,
+    "type": "ImageDisplayUnit",
+    "image_path": null,
+    "image_id": "edc8f4ab934c4d7288d566fb98a55d5a",
+    "enable_color_diffusion": false
+  },
+  "41": {
+    "name": "",
+    "display_time": 10,
+    "type": "ImageDisplayUnit",
+    "image_path": null,
+    "image_id": "0a176887dd7244f78ed2de38e4e2da0d",
+    "enable_color_diffusion": false
+  },
+  "42": {
+    "name": "",
+    "display_time": 10,
+    "type": "ImageDisplayUnit",
+    "image_path": null,
+    "image_id": "477e3c831d2c48928c4cdb71a93eef1d",
+    "enable_color_diffusion": false
+  },
+  "43": {
+    "name": "\u5929\u6c14",
+    "display_time": 10,
+    "type": "WeatherDisplayUnit",
+    "location": "101010100"
   }
 }

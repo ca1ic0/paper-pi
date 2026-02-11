@@ -1,59 +1,36 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图片库 - Paper Pi</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header class="header">
-            <div class="logo">
-                <h1>Paper Pi</h1>
-                <span class="subtitle">图片库</span>
-            </div>
-            <nav class="nav">
-                <a href="/" class="nav-link">首页</a>
-                <a href="/admin" class="nav-link">后台管理</a>
-                <a href="/library" class="nav-link active">图片库</a>
-                <a href="/text2image" class="nav-link">文生图</a>
-            </nav>
-        </header>
+{% extends "base.html" %}
 
-        <main class="main">
-            <div class="admin-header reveal" style="--i: 1;">
-                <h3>图片库</h3>
-                <div class="library-actions">
-                    <button class="btn btn-secondary" id="library-select-toggle">批量管理</button>
-                    <button class="btn btn-secondary" id="library-delete-btn" disabled>删除选中</button>
-                    <button class="icon-btn refresh-btn" id="library-refresh-btn" title="刷新" aria-label="刷新">
-                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                            <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0012 4V1L7 6l5 5V7a5 5 0 11-5 5H5a7 7 0 107.75-6.94l.9-1.71z"/>
-                        </svg>
-                    </button>
-                    <input type="file" id="library-upload-input" accept="image/*" style="display: none;">
-                    <button class="btn btn-primary" id="library-upload-btn">上传图片</button>
-                </div>
-            </div>
+{% block title %}图片库 - Paper Pi{% endblock %}
+{% block page_subtitle %}图片库{% endblock %}
+{% block nav_library %}active{% endblock %}
 
-            <div class="library-dropzone reveal" id="library-dropzone" style="--i: 2;">
-                <div class="dropzone-title">拖拽图片到这里上传</div>
-                <div class="dropzone-subtitle">支持任意图片格式，自动转换为 800x480 BMP</div>
-            </div>
-
-            <div class="library-grid reveal" id="library-grid" style="--i: 3;">
-                <!-- 图片库将通过JavaScript动态添加 -->
-            </div>
-        </main>
-
-        <footer class="footer">
-            <div class="footer-content">
-                <p>&copy; 2026 Paper Pi. 智能墨水屏应用系统</p>
-            </div>
-        </footer>
+{% block content %}
+<main class="main">
+    <div class="admin-header reveal" style="--i: 1;">
+        <h3>图片库</h3>
+        <div class="library-actions">
+            <button class="btn btn-secondary" id="library-select-toggle">批量管理</button>
+            <button class="btn btn-secondary" id="library-delete-btn" disabled>删除选中</button>
+            <button class="icon-btn refresh-btn" id="library-refresh-btn" title="刷新" aria-label="刷新">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0012 4V1L7 6l5 5V7a5 5 0 11-5 5H5a7 7 0 107.75-6.94l.9-1.71z"/>
+                </svg>
+            </button>
+            <input type="file" id="library-upload-input" accept="image/*" style="display: none;">
+            <button class="btn btn-primary" id="library-upload-btn">上传图片</button>
+        </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/library.js') }}"></script>
-</body>
-</html>
+    <div class="library-dropzone reveal" id="library-dropzone" style="--i: 2;">
+        <div class="dropzone-title">拖拽图片到这里上传</div>
+        <div class="dropzone-subtitle">支持任意图片格式，自动转换为 800x480 BMP</div>
+    </div>
+
+    <div class="library-grid reveal" id="library-grid" style="--i: 3;">
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/library.js') }}"></script>
+{% endblock %}

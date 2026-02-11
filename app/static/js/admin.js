@@ -11,6 +11,8 @@ function initAdminPage() {
     // 初始化模态框
     initModals();
     initEditorPanel();
+
+    initPlaylistDelegation();
     
     // 加载播放列表
     loadPlaylists();
@@ -248,23 +250,8 @@ function loadPlaylists() {
             localStorage.setItem('activePlaylistId', activePlaylistId);
         }
 
-        console.log('Playlists:', playlists);
-        
-        // 清空列表
-        playlistList.innerHTML = '';
-        
-        // 添加播放列表项
-        playlists.forEach((playlist, idx) => {
-            const playlistItem = createPlaylistItem(playlist);
-            playlistItem.classList.add('reveal');
-            playlistItem.style.setProperty('--i', idx + 1);
-            if (activePlaylistId === playlist.id) {
-                playlistItem.classList.add('is-playing');
-            }
-            playlistList.appendChild(playlistItem);
-        });
+        renderPlaylists(playlistList, playlists);
         initPlaylistDragAndDrop();
-        initPlaylistItemSelection();
     })
     .catch(error => {
         console.error('Error loading playlists:', error);
@@ -272,21 +259,155 @@ function loadPlaylists() {
     });
 }
 
-function initPlaylistItemSelection() {
-    const items = document.querySelectorAll('.playlist-du-item');
-    items.forEach(item => {
-        if (item.classList.contains('add-item')) {
+function renderPlaylists(container, playlists) {
+    const html = playlists.map((playlist, idx) => {
+        const item = createPlaylistItemHTML(playlist);
+        return item.replace('data-reveal-index=""', `data-reveal-index="${idx + 1}"`);
+    }).join('');
+    container.innerHTML = html;
+    const revealItems = container.querySelectorAll('.playlist-item');
+    revealItems.forEach(item => {
+        item.classList.add('reveal');
+        item.style.setProperty('--i', item.dataset.revealIndex || 1);
+    });
+    attachImageLoadingHandlers(container);
+}
+
+function createPlaylistItemHTML(playlist) {
+    const durations = playlist.display_units.map(duId => {
+        const du = displayUnitsById[duId];
+        const duration = du && du.display_time ? du.display_time : 1;
+        return Math.max(1, duration);
+    });
+    const totalDuration = durations.reduce((sum, val) => sum + val, 0) || 1;
+    const maxBlockWidth = 220;
+    const displayItems = playlist.display_units.map((duId, index) => {
+        const du = displayUnitsById[duId];
+        const name = du ? du.name : `单元 ${duId}`;
+        let metaHtml = '';
+        const duration = durations[index];
+        const widthPx = Math.min(maxBlockWidth, Math.max(64, Math.round((duration / totalDuration) * 1000)));
+
+        if (du && du.type === 'ImageDisplayUnit') {
+            const imageId = du.image_id;
+            if (imageId) {
+                metaHtml = `
+                    <div class="playlist-du-meta">
+                        <img class="playlist-du-thumb" loading="lazy" src="/api/image-library/${imageId}/file?t=${Date.now()}" alt="${name}">
+                    </div>
+                `;
+            }
+        } else if (du && du.type === 'TextToImageDisplayUnit') {
+            const prompt = du.user_prompt || '';
+            metaHtml = `
+                <div class="playlist-du-meta">
+                    <span class="playlist-du-prompt">${prompt}</span>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="playlist-du-item" draggable="true" data-du-id="${duId}" style="flex: 0 0 ${widthPx}px;" title="时长：${duration}s">
+                <div class="playlist-du-main">
+                    <span class="playlist-du-name">${name}</span>
+                    ${metaHtml}
+                </div>
+                <button class="btn btn-secondary remove-btn" data-action="remove-du" data-du-id="${duId}" data-playlist-id="${playlist.id}">×</button>
+            </div>
+        `;
+    }).join('');
+
+    const isPlaying = activePlaylistId === playlist.id;
+
+    return `
+        <div class="playlist-item ${isPlaying ? 'is-playing' : ''}" data-playlist-id="${playlist.id}" data-reveal-index="">
+            <div class="playlist-header">
+                <div class="playlist-title-wrap">
+                    <h4 class="playlist-title">${playlist.name}</h4>
+                    <button class="icon-btn rename-btn" data-action="rename" data-playlist-id="${playlist.id}" title="重命名" aria-label="重命名">
+                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 1 0-1.41 1.41l2.34 2.34c.39.39 1.02.39 1.41 0z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="playlist-actions">
+                    <button class="icon-btn play-btn" data-action="play" data-playlist-id="${playlist.id}" title="播放" aria-label="播放">
+                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            ${isPlaying ? '<path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/>' : '<path fill="currentColor" d="M8 5v14l11-7z"/>'}
+                        </svg>
+                    </button>
+                    <button class="icon-btn delete-btn" data-action="delete" data-playlist-id="${playlist.id}" title="删除" aria-label="删除">
+                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <path fill="currentColor" d="M6 7h12l-1 14H7L6 7zm3-3h6l1 2H8l1-2zm-2 2h10v2H7V6z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="playlist-body">
+                <div class="playlist-timeline-scale">
+                    <span>0s</span>
+                    <span>${Math.round(totalDuration / 2)}s</span>
+                    <span>${totalDuration}s</span>
+                </div>
+                <div class="playlist-du-list">
+                    ${playlist.display_units.length > 0 ? 
+                        `
+                            <div class="playlist-du-items ${playlist.display_units.length < 10 ? 'no-scroll' : ''}" data-playlist-id="${playlist.id}">
+                                ${displayItems}
+                                <div class="playlist-du-item add-item" data-action="add-du" data-playlist-id="${playlist.id}">
+                                    <span>+</span>
+                                    <span>添加单元</span>
+                                </div>
+                            </div>
+                        ` : 
+                        `
+                            <div class="playlist-du-items">
+                                <div class="playlist-du-item add-item" data-action="add-du" data-playlist-id="${playlist.id}">
+                                    <span>+</span>
+                                    <span>添加单元</span>
+                                </div>
+                            </div>
+                        `
+                    }
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function initPlaylistDelegation() {
+    const playlistList = document.getElementById('playlist-list');
+    if (!playlistList) return;
+
+    playlistList.addEventListener('click', (e) => {
+        const actionEl = e.target.closest('[data-action]');
+        if (!actionEl) {
+            const item = e.target.closest('.playlist-du-item');
+            if (item && !item.classList.contains('add-item')) {
+                const duId = item.dataset.duId;
+                showEditorForDisplayUnit(duId, item);
+            }
             return;
         }
-        item.addEventListener('click', (e) => {
-            if (e.target.closest('.remove-btn')) {
-                return;
-            }
-            const duId = item.dataset.duId;
-            showEditorForDisplayUnit(duId, item);
-        });
+
+        const action = actionEl.dataset.action;
+        const playlistId = actionEl.dataset.playlistId;
+        const duId = actionEl.dataset.duId;
+
+        if (action === 'add-du') {
+            openAddDuModal(playlistId);
+        } else if (action === 'remove-du') {
+            removeDuFromPlaylist(playlistId, duId);
+        } else if (action === 'rename') {
+            editPlaylist(playlistId);
+        } else if (action === 'delete') {
+            deletePlaylist(playlistId);
+        } else if (action === 'play') {
+            togglePlaylistPlayback(playlistId);
+        }
     });
 }
+function initPlaylistItemSelection() {}
 
 function showEditorForDisplayUnit(duId, itemEl) {
     const du = displayUnitsById[duId];
@@ -440,21 +561,9 @@ function updateEditorPreview(imageId, diffusionToggle, previewImg) {
     if (!imageId || !previewImg) {
         return;
     }
-    fetch('/api/image-preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            image_id: imageId,
-            enable_color_diffusion: diffusionToggle ? diffusionToggle.checked : false
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.image_url) {
-            previewImg.src = data.image_url;
-        }
-    })
-    .catch(() => {});
+    previewImg.classList.add('img-loading');
+    const diffusion = diffusionToggle ? diffusionToggle.checked : false;
+    previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageId)}&enable_color_diffusion=${diffusion}&t=${Date.now()}`;
 }
 
 function initPlaylistDragAndDrop() {
@@ -566,7 +675,7 @@ function renderImageSelectGrid(images, grid, input) {
         div.style.setProperty('--i', idx + 1);
         div.dataset.imageId = item.id;
         div.innerHTML = `
-            <img src="/api/image-library/${item.id}/file" alt="${item.original_name}">
+            <img class="img-loading" loading="lazy" src="/api/image-library/${item.id}/file?t=${Date.now()}" alt="${item.original_name}">
             <div class="image-select-name">${item.original_name}</div>
         `;
         div.addEventListener('click', () => {
@@ -583,28 +692,28 @@ function renderImageSelectGrid(images, grid, input) {
         });
         grid.appendChild(div);
     });
+    attachImageLoadingHandlers(grid);
 }
 
 function updateAddPreview(imageIdInput, diffusionToggle, preview, previewImg) {
     if (!imageIdInput || !imageIdInput.value || !preview || !previewImg) {
         return;
     }
-    fetch('/api/image-preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            image_id: imageIdInput.value,
-            enable_color_diffusion: diffusionToggle ? diffusionToggle.checked : false
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.image_url) {
-            previewImg.src = data.image_url;
-            preview.style.display = 'block';
-        }
-    })
-    .catch(() => {});
+    previewImg.classList.add('img-loading');
+    const diffusion = diffusionToggle ? diffusionToggle.checked : false;
+    previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageIdInput.value)}&enable_color_diffusion=${diffusion}&t=${Date.now()}`;
+    preview.style.display = 'block';
+}
+
+function attachImageLoadingHandlers(root) {
+    const imgs = root.querySelectorAll('img.img-loading');
+    imgs.forEach(img => {
+        img.addEventListener('load', () => img.classList.remove('img-loading'), { once: true });
+        img.addEventListener('error', () => {
+            img.classList.remove('img-loading');
+            img.classList.add('img-error');
+        }, { once: true });
+    });
 }
 
 // 打开添加显示单元模态框
@@ -621,110 +730,7 @@ function openAddDuModal(playlistId) {
 }
 
 // 创建播放列表项
-function createPlaylistItem(playlist) {
-    const item = document.createElement('div');
-    item.className = 'playlist-item';
-    
-    const durations = playlist.display_units.map(duId => {
-        const du = displayUnitsById[duId];
-        const duration = du && du.display_time ? du.display_time : 1;
-        return Math.max(1, duration);
-    });
-    const totalDuration = durations.reduce((sum, val) => sum + val, 0) || 1;
-    const pxPerSecond = 6;
-    const maxBlockWidth = 220;
-
-    const displayItems = playlist.display_units.map((duId, index) => {
-        const du = displayUnitsById[duId];
-        const name = du ? du.name : `单元 ${duId}`;
-        let metaHtml = '';
-        const duration = durations[index];
-        const widthPx = Math.min(maxBlockWidth, Math.max(64, Math.round((duration / totalDuration) * 1000)));
-
-        if (du && du.type === 'ImageDisplayUnit') {
-            const imageId = du.image_id;
-            if (imageId) {
-                metaHtml = `
-                    <div class="playlist-du-meta">
-                        <img class="playlist-du-thumb" src="/api/image-library/${imageId}/file" alt="${name}">
-                    </div>
-                `;
-            }
-        } else if (du && du.type === 'TextToImageDisplayUnit') {
-            const prompt = du.user_prompt || '';
-            metaHtml = `
-                <div class="playlist-du-meta">
-                    <span class="playlist-du-prompt">${prompt}</span>
-                </div>
-            `;
-        }
-
-        return `
-            <div class="playlist-du-item" draggable="true" data-du-id="${duId}" style="flex: 0 0 ${widthPx}px;" title="时长：${duration}s">
-                <div class="playlist-du-main">
-                    <span class="playlist-du-name">${name}</span>
-                    ${metaHtml}
-                </div>
-                <button class="btn btn-secondary remove-btn" onclick="removeDuFromPlaylist('${playlist.id}', '${duId}')">×</button>
-            </div>
-        `;
-    }).join('');
-
-    item.innerHTML = `
-        <div class="playlist-header">
-            <div class="playlist-title-wrap">
-                <h4 class="playlist-title">${playlist.name}</h4>
-                <button class="icon-btn rename-btn" onclick="editPlaylist('${playlist.id}')" title="重命名" aria-label="重命名">
-                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                        <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 1 0-1.41 1.41l2.34 2.34c.39.39 1.02.39 1.41 0z"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="playlist-actions">
-                <button class="icon-btn play-btn" onclick="togglePlaylistPlayback('${playlist.id}')" title="播放" aria-label="播放">
-                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                        ${activePlaylistId === playlist.id ? '<path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/>' : '<path fill="currentColor" d="M8 5v14l11-7z"/>'}
-                    </svg>
-                </button>
-                <button class="icon-btn delete-btn" onclick="deletePlaylist('${playlist.id}')" title="删除" aria-label="删除">
-                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                        <path fill="currentColor" d="M6 7h12l-1 14H7L6 7zm3-3h6l1 2H8l1-2zm-2 2h10v2H7V6z"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div class="playlist-body">
-            <div class="playlist-timeline-scale">
-                <span>0s</span>
-                <span>${Math.round(totalDuration / 2)}s</span>
-                <span>${totalDuration}s</span>
-            </div>
-            <div class="playlist-du-list">
-                ${playlist.display_units.length > 0 ? 
-                    `
-                        <div class="playlist-du-items ${playlist.display_units.length < 10 ? 'no-scroll' : ''}" data-playlist-id="${playlist.id}">
-                            ${displayItems}
-                            <div class="playlist-du-item add-item" onclick="openAddDuModal('${playlist.id}')">
-                                <span>+</span>
-                                <span>添加单元</span>
-                            </div>
-                        </div>
-                    ` : 
-                    `
-                        <div class="playlist-du-items">
-                            <div class="playlist-du-item add-item" onclick="openAddDuModal('${playlist.id}')">
-                                <span>+</span>
-                                <span>添加单元</span>
-                            </div>
-                        </div>
-                    `
-                }
-            </div>
-        </div>
-    `;
-    
-    return item;
-}
+// createPlaylistItem removed in favor of HTML render to reduce DOM churn
 
 // 编辑播放列表
 function editPlaylist(playlistId) {

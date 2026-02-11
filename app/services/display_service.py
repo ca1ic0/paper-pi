@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from PIL import Image
 from app.config import RUN_MODE
+import threading
 
 class DisplayService:
     """显示服务类，根据运行模式决定如何显示图像"""
@@ -11,12 +12,46 @@ class DisplayService:
         """
         self.run_mode = RUN_MODE
         self.epd = None
+        self._buffer = None
+        self._palette_image = None
+        self._buffer_lock = threading.Lock()
         
         # 仅在生产模式下导入墨水屏驱动
         if self.run_mode == 'production':
             from lib.waveshare_epd.epd7in3e import EPD
             self.epd = EPD()
             self.epd.init()
+            self._init_buffer_pool()
+
+    def _init_buffer_pool(self):
+        # Create a reusable palette and buffer to reduce allocations
+        self._palette_image = Image.new("P", (1, 1))
+        self._palette_image.putpalette(
+            (0, 0, 0, 255, 255, 255, 255, 255, 0, 255, 0, 0, 0, 0, 0, 0, 0, 255, 0, 255, 0)
+            + (0, 0, 0) * 249
+        )
+        size = int(self.epd.width * self.epd.height / 2)
+        self._buffer = bytearray(size)
+
+    def _getbuffer_reuse(self, image):
+        # Similar to epd.getbuffer but reuses buffer
+        imwidth, imheight = image.size
+        if imwidth == self.epd.width and imheight == self.epd.height:
+            image_temp = image
+        elif imwidth == self.epd.height and imheight == self.epd.width:
+            image_temp = image.rotate(90, expand=True)
+        else:
+            image_temp = image.resize((self.epd.width, self.epd.height))
+
+        image_6color = image_temp.convert("RGB").quantize(palette=self._palette_image)
+        buf_6color = image_6color.tobytes("raw")
+
+        buf = self._buffer
+        idx = 0
+        for i in range(0, len(buf_6color), 2):
+            buf[idx] = (buf_6color[i] << 4) + buf_6color[i + 1]
+            idx += 1
+        return buf
     
     def display_image(self, image):
         """
@@ -54,11 +89,18 @@ class DisplayService:
         try:
             print("Displaying image on e-paper...")
             # 转换图像为墨水屏驱动需要的格式
-            buffer = self.epd.getbuffer(image)
+            with self._buffer_lock:
+                buffer = self._getbuffer_reuse(image)
             # 显示图像
             self.epd.display(buffer)
-            # 休眠以节省电量
-            self.epd.sleep()
+            # 释放内存，避免Zero内存不足
+            try:
+                if hasattr(image, "close"):
+                    image.close()
+            finally:
+                del buffer
+                import gc
+                gc.collect()
         except Exception as e:
             raise RuntimeError(f"Error displaying image on EPD: {e}")
     

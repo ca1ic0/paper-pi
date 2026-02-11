@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Paper Pi{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <h1>Paper Pi</h1>
+                <span class="subtitle">{% block page_subtitle %}墨水屏智能应用{% endblock %}</span>
+            </div>
+            <nav class="nav" aria-label="主导航">
+                <a href="/" class="nav-link {% block nav_home %}{% endblock %}">首页</a>
+                <a href="/admin" class="nav-link {% block nav_admin %}{% endblock %}">后台管理</a>
+                <a href="/library" class="nav-link {% block nav_library %}{% endblock %}">图片库</a>
+                <a href="/text2image" class="nav-link {% block nav_text2image %}{% endblock %}">文生图</a>
+            </nav>
+        </header>
+
+        {% block content %}{% endblock %}
+
+        <footer class="footer">
+            <div class="footer-content">
+                <p>&copy; 2026 Paper Pi. 智能墨水屏应用系统</p>
+            </div>
+        </footer>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

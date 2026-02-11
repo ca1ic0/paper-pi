@@ -14,5 +14,14 @@
       "image_id": "312baee876bc42b0882e49035858d923",
       "status": "ready"
     }
+  },
+  "2026-02-11": {
+    "text2image::风景": {
+      "image_id": "405d1214acaf45aa9f2135377e467943"
+    },
+    "101010100": {
+      "image_id": "a23ea180773c4844a44e3108f9e0fc07",
+      "status": "ready"
+    }
   }
 }

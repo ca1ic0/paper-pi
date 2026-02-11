@@ -1,75 +1,53 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图片详情 - Paper Pi</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header class="header">
-            <div class="logo">
-                <h1>Paper Pi</h1>
-                <span class="subtitle">图片详情</span>
-            </div>
-            <nav class="nav">
-                <a href="/" class="nav-link">首页</a>
-                <a href="/admin" class="nav-link">后台管理</a>
-                <a href="/library" class="nav-link active">图片库</a>
-                <a href="/text2image" class="nav-link">文生图</a>
-            </nav>
-        </header>
+{% extends "base.html" %}
 
-        <main class="main">
-            <div class="admin-header reveal" style="--i: 1;">
-                <h3>图片详情</h3>
-                <div class="library-actions">
-                    <a href="/library" class="btn btn-secondary">返回图片库</a>
-                </div>
-            </div>
+{% block title %}图片详情 - Paper Pi{% endblock %}
+{% block page_subtitle %}图片详情{% endblock %}
+{% block nav_library %}active{% endblock %}
 
-            <div class="detail-grid reveal" style="--i: 2;">
-                <div class="detail-preview">
-                    <img id="detail-image" src="" alt="图片预览">
-                </div>
-                <div class="detail-info">
-                    <div class="detail-row">
-                        <span class="detail-label">原始名称</span>
-                        <span class="detail-value" id="detail-name">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">存储路径</span>
-                        <span class="detail-value" id="detail-path">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">创建时间</span>
-                        <span class="detail-value" id="detail-date">-</span>
-                    </div>
-                    <div class="detail-row">
-                        <span class="detail-label">状态</span>
-                        <span class="detail-value" id="detail-status-text">-</span>
-                    </div>
-                    <div class="detail-actions">
-                        <button class="btn btn-primary" data-style="oil_painting">油画风格</button>
-                        <button class="btn btn-primary" data-style="watercolor">水彩风格</button>
-                        <button class="btn btn-primary" data-style="miyazaki">宫崎骏风格</button>
-                    </div>
-                    <div id="detail-status" class="detail-status" style="display: none;"></div>
-                </div>
-            </div>
-        </main>
-
-        <footer class="footer">
-            <div class="footer-content">
-                <p>&copy; 2026 Paper Pi. 智能墨水屏应用系统</p>
-            </div>
-        </footer>
+{% block content %}
+<main class="main">
+    <div class="admin-header reveal" style="--i: 1;">
+        <h3>图片详情</h3>
+        <div class="library-actions">
+            <a href="/library" class="btn btn-secondary">返回图片库</a>
+        </div>
     </div>
 
-    <script>
-        const IMAGE_ID = "{{ image_id }}";
-    </script>
-    <script src="{{ url_for('static', filename='js/library_detail.js') }}"></script>
-</body>
-</html>
+    <div class="detail-grid reveal" style="--i: 2;">
+        <div class="detail-preview">
+            <img id="detail-image" src="" alt="图片预览">
+        </div>
+        <div class="detail-info">
+            <div class="detail-row">
+                <span class="detail-label">原始名称</span>
+                <span class="detail-value" id="detail-name">-</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">存储路径</span>
+                <span class="detail-value" id="detail-path">-</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">创建时间</span>
+                <span class="detail-value" id="detail-date">-</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">状态</span>
+                <span class="detail-value" id="detail-status-text">-</span>
+            </div>
+            <div class="detail-actions">
+                <button class="btn btn-primary" data-style="oil_painting">油画风格</button>
+                <button class="btn btn-primary" data-style="watercolor">水彩风格</button>
+                <button class="btn btn-primary" data-style="miyazaki">宫崎骏风格</button>
+            </div>
+            <div id="detail-status" class="detail-status" style="display: none;"></div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const IMAGE_ID = "{{ image_id }}";
+</script>
+<script src="{{ url_for('static', filename='js/library_detail.js') }}"></script>
+{% endblock %}

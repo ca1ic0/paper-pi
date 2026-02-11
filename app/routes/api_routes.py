@@ -398,6 +398,37 @@ def preview_image_with_options():
         return jsonify({'error': str(e)}), 500
 
 
+@api_routes.route('/image-preview/file', methods=['GET'])
+def preview_image_file():
+    """
+    预览图片文件（可选颜色扩散）
+    """
+    image_id = request.args.get('image_id')
+    enable_color_diffusion = request.args.get('enable_color_diffusion', 'false').lower() == 'true'
+    if not image_id:
+        return jsonify({'error': 'image_id is required'}), 400
+
+    service = ImageLibraryService()
+    image_path = service.get_image_path(image_id)
+    if not image_path:
+        return jsonify({'error': 'Image not found'}), 404
+
+    try:
+        from PIL import Image
+        from io import BytesIO
+
+        image = Image.open(image_path).convert('RGB')
+        if enable_color_diffusion:
+            image = apply_color_diffusion(image)
+
+        buffer = BytesIO()
+        image.save(buffer, format='PNG')
+        buffer.seek(0)
+        return send_file(buffer, mimetype='image/png')
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @api_routes.route('/test-display', methods=['POST'])
 def test_display():
     """

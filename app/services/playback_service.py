@@ -84,14 +84,7 @@ class PlaybackService:
                 try:
                     image = du.get_image()
                     self.display_service.display_image(image)
-                except Exception:
-                    pass
-                duration = getattr(du, "display_time", 1)
-                end_time = time.time() + max(1, int(duration))
-                while time.time() < end_time:
-                    if self._stop_event.is_set():
-                        break
-                    while self._pause_event.is_set() and not self._stop_event.is_set():
-                        time.sleep(0.2)
-                    time.sleep(0.2)
-
+                except Exception as e:
+                    print(f"Playback error for DU {du_id}: {e}")
+                duration = max(1, int(getattr(du, "display_time", 1)))
+                time.sleep(duration)

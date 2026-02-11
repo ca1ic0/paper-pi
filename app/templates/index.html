@@ -1,84 +1,61 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Paper Pi - 墨水屏应用</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    <div class="container">
-        <header class="header">
-            <div class="logo">
-                <h1>Paper Pi</h1>
-                <span class="subtitle">墨水屏智能应用</span>
+{% extends "base.html" %}
+
+{% block title %}Paper Pi - 墨水屏应用{% endblock %}
+{% block nav_home %}active{% endblock %}
+
+{% block content %}
+<main class="main">
+    <section class="hero reveal" style="--i: 1;">
+        <div class="hero-content">
+            <h2>智能墨水屏展示系统</h2>
+            <p>通过 AI 工作流生成、管理并播放图片内容，在墨水屏上稳定展示。</p>
+            <a href="/admin" class="btn btn-primary">开始管理</a>
+        </div>
+        <div class="hero-image">
+            <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20e-ink%20display%20device%20with%20tech%20interface%20showing%20images%20and%20text&image_size=landscape_16_9" alt="墨水屏展示">
+        </div>
+    </section>
+
+    <section class="features reveal" style="--i: 2;">
+        <h3>核心功能</h3>
+        <div class="feature-grid">
+            <div class="feature-card reveal" style="--i: 3;">
+                <div class="feature-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="3" y1="9" x2="21" y2="9"></line>
+                        <line x1="9" y1="21" x2="9" y2="9"></line>
+                    </svg>
+                </div>
+                <h4>多种显示单元</h4>
+                <p>支持空白单元、图片单元、文生图、天气与诗词等多种播放内容。</p>
             </div>
-            <nav class="nav">
-                <a href="/" class="nav-link active">首页</a>
-                <a href="/admin" class="nav-link">后台管理</a>
-                <a href="/library" class="nav-link">图片库</a>
-                <a href="/text2image" class="nav-link">文生图</a>
-            </nav>
-        </header>
-        
-        <main class="main">
-            <section class="hero reveal" style="--i: 1;">
-                <div class="hero-content">
-                    <h2>智能墨水屏展示系统</h2>
-                    <p>通过先进的AI技术，将文字转化为精美的图片，在墨水屏上呈现</p>
-                    <a href="/admin" class="btn btn-primary">开始管理</a>
+            <div class="feature-card reveal" style="--i: 4;">
+                <div class="feature-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M12 19l9 2-9-18-9 18 9-2z"></path>
+                        <path d="M12 13l9-7-9 11-9-4 9 2z"></path>
+                    </svg>
                 </div>
-                <div class="hero-image">
-                    <img src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=modern%20e-ink%20display%20device%20with%20tech%20interface%20showing%20images%20and%20text&image_size=landscape_16_9" alt="墨水屏展示">
-                </div>
-            </section>
-            
-            <section class="features reveal" style="--i: 2;">
-                <h3>核心功能</h3>
-                <div class="feature-grid">
-                    <div class="feature-card reveal" style="--i: 3;">
-                        <div class="feature-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                <line x1="3" y1="9" x2="21" y2="9"></line>
-                                <line x1="9" y1="21" x2="9" y2="9"></line>
-                            </svg>
-                        </div>
-                        <h4>多种显示单元</h4>
-                        <p>支持空单元、静态图片和文生图等多种显示模式</p>
-                    </div>
-                    <div class="feature-card reveal" style="--i: 4;">
-                        <div class="feature-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M12 19l9 2-9-18-9 18 9-2z"></path>
-                                <path d="M12 13l9-7-9 11-9-4 9 2z"></path>
-                            </svg>
-                        </div>
-                        <h4>AI智能优化</h4>
-                        <p>使用先进的LLM技术优化用户提示词，生成更精美的图片</p>
-                    </div>
-                    <div class="feature-card reveal" style="--i: 5;">
-                        <div class="feature-icon">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                                <polyline points="2 17 12 22 22 17"></polyline>
-                                <polyline points="2 12 12 17 22 12"></polyline>
-                            </svg>
-                        </div>
-                        <h4>播放列表管理</h4>
-                        <p>灵活组合多个显示单元，创建个性化的播放序列</p>
-                    </div>
-                </div>
-            </section>
-        </main>
-        
-        <footer class="footer">
-            <div class="footer-content">
-                <p>&copy; 2026 Paper Pi. 智能墨水屏应用系统</p>
+                <h4>AI 智能优化</h4>
+                <p>自动优化提示词并生成更适合墨水屏表现的图像素材。</p>
             </div>
-        </footer>
-    </div>
-    
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-</body>
-</html>
+            <div class="feature-card reveal" style="--i: 5;">
+                <div class="feature-icon">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                        <polyline points="2 17 12 22 22 17"></polyline>
+                        <polyline points="2 12 12 17 22 12"></polyline>
+                    </svg>
+                </div>
+                <h4>播放列表调度</h4>
+                <p>按时长编排内容，支持拖拽排序与一键切换当前播放列表。</p>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% endblock %}
