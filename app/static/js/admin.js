@@ -1,10 +1,6 @@
 // 后台管理页面JavaScript
 
 // 页面加载完成后初始化
-window.addEventListener('DOMContentLoaded', function() {
-    initAdminPage();
-});
-
 function initAdminPage() {
     document.body.classList.add('is-loaded');
 
@@ -26,55 +22,27 @@ let currentPlaylistId = null;
 let displayUnitsById = {};
 let currentEditingDuId = null;
 let activePlaylistId = null;
+let editorPreviewRequestToken = 0;
+let cachedPlaylists = [];
 
 // 初始化模态框
 function initModals() {
-    // 添加播放列表模态框
-    const addPlaylistModal = document.getElementById('add-playlist-modal');
     const addPlaylistBtn = document.getElementById('add-playlist-btn');
-    const closePlaylistBtn = addPlaylistModal.querySelector('.close-btn');
-    const cancelPlaylistBtn = document.getElementById('cancel-playlist-btn');
-    const savePlaylistBtn = document.getElementById('save-playlist-btn');
-    
-    // 添加播放列表按钮点击事件
-    addPlaylistBtn.addEventListener('click', function() {
-        addPlaylistModal.classList.add('active');
-    });
-    
-    // 关闭模态框
-    function closePlaylistModal() {
-        addPlaylistModal.classList.remove('active');
-        document.getElementById('add-playlist-form').reset();
-    }
-    
-    closePlaylistBtn.addEventListener('click', closePlaylistModal);
-    cancelPlaylistBtn.addEventListener('click', closePlaylistModal);
-    
-    // 保存播放列表
-    savePlaylistBtn.addEventListener('click', function() {
-        const form = document.getElementById('add-playlist-form');
-        const formData = new FormData(form);
-        const data = Object.fromEntries(formData);
-        
-        // 发送API请求
-        fetch('/api/playlists', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(result => {
-            console.log('Playlist created:', result);
-            closePlaylistModal();
-            loadPlaylists();
-        })
-        .catch(error => {
-            console.error('Error creating playlist:', error);
-            alert('创建播放列表失败');
+    // 添加播放列表按钮点击事件（非阻塞弹层输入）
+    if (addPlaylistBtn) {
+        addPlaylistBtn.addEventListener('click', async function() {
+            const name = await askPlaylistName({
+                title: '新增播放列表',
+                message: '名称规则：至少 2 个字符；不能包含 \\\\/:*?"<>|；不能与其他播放列表重名。',
+                initialValue: '',
+                editingId: null
+            });
+            if (!name) {
+                return;
+            }
+            await createPlaylistByName(name);
         });
-    });
+    }
     
     // 添加显示单元模态框
     const addDuModal = document.getElementById('add-du-modal');
@@ -161,7 +129,7 @@ function initModals() {
             delete data.image_id;
         }
         if (data.type === 'ImageDisplayUnit' && !data.image_id) {
-            alert('请选择图片库中的图片');
+            window.PaperPiUI.toast('请选择图片库中的图片', 'warn');
             return;
         }
         if (data.type === 'ImageDisplayUnit') {
@@ -173,7 +141,7 @@ function initModals() {
             const locationInput = document.getElementById('du-weather-location');
             data.location = locationInput ? locationInput.value.trim() : '';
             if (!data.location) {
-                alert('请输入地理位置代码');
+                window.PaperPiUI.toast('请输入地理位置代码', 'warn');
                 return;
             }
         } else {
@@ -211,7 +179,7 @@ function initModals() {
         })
         .catch(error => {
             console.error('Error creating display unit:', error);
-            alert('创建显示单元失败');
+            window.PaperPiUI.toast('创建显示单元失败', 'error');
         });
     });
 }
@@ -224,6 +192,7 @@ function initEditorPanel() {
             const panel = document.getElementById('playlist-editor');
             panel.style.display = 'none';
             currentEditingDuId = null;
+            clearEditorPreviewTicker();
         });
     }
     if (saveBtn) {
@@ -245,6 +214,7 @@ function loadPlaylists() {
         displayUnits.forEach(du => {
             displayUnitsById[du.id] = du;
         });
+        cachedPlaylists = Array.isArray(playlists) ? playlists : [];
         if (status && status.active_playlist_id) {
             activePlaylistId = status.active_playlist_id;
             localStorage.setItem('activePlaylistId', activePlaylistId);
@@ -439,6 +409,8 @@ function showEditorForDisplayUnit(duId, itemEl) {
     const poetryGroup = document.getElementById('editor-poetry-mood-group');
     const poetryInput = document.getElementById('edit-du-poetry-mood');
     const status = document.getElementById('editor-status');
+    const previewWrap = previewImg ? previewImg.closest('.editor-preview') : null;
+    const requestToken = ++editorPreviewRequestToken;
 
     typeInput.value = du.type || '';
     nameInput.value = du.name || '';
@@ -472,23 +444,56 @@ function showEditorForDisplayUnit(duId, itemEl) {
 
     status.style.display = 'none';
     status.textContent = '';
+    if (previewImg) {
+        previewImg.classList.remove('img-error');
+    }
+    setEditorPreviewState(previewWrap, 'loading', '正在生成预览图...');
 
     if (du.type === 'ImageDisplayUnit' && du.image_id) {
-        updateEditorPreview(du.image_id, diffusionToggle, previewImg);
+        updateEditorPreview(du.image_id, diffusionToggle, previewImg, requestToken, '正在渲染预览图...');
         if (diffusionToggle) {
-            diffusionToggle.addEventListener('change', () => {
-                updateEditorPreview(du.image_id, diffusionToggle, previewImg);
-            });
+            diffusionToggle.onchange = () => {
+                updateEditorPreview(du.image_id, diffusionToggle, previewImg, requestToken, '正在应用颜色扩散...');
+            };
         }
     } else {
+        if (diffusionToggle) {
+            diffusionToggle.onchange = null;
+        }
         fetch(`/api/display-units/${duId}/preview`)
         .then(response => response.json())
         .then(data => {
+            if (requestToken !== editorPreviewRequestToken) {
+                return;
+            }
             if (data.image_url) {
+                previewImg.addEventListener('load', () => {
+                    if (requestToken !== editorPreviewRequestToken) {
+                        return;
+                    }
+                    setEditorPreviewState(previewWrap, 'ready', '预览生成完成');
+                }, { once: true });
+                previewImg.addEventListener('error', () => {
+                    if (requestToken !== editorPreviewRequestToken) {
+                        return;
+                    }
+                    setEditorPreviewState(previewWrap, 'error', '预览加载失败，请稍后重试');
+                }, { once: true });
                 previewImg.src = data.image_url;
+                return;
+            }
+            if (data.error) {
+                setEditorPreviewState(previewWrap, 'error', `预览失败：${data.error}`);
+            } else {
+                setEditorPreviewState(previewWrap, 'error', '预览生成失败');
             }
         })
-        .catch(() => {});
+        .catch(() => {
+            if (requestToken !== editorPreviewRequestToken) {
+                return;
+            }
+            setEditorPreviewState(previewWrap, 'error', '预览请求失败，请稍后重试');
+        });
     }
 
     panel.style.display = 'block';
@@ -557,13 +562,113 @@ function saveEditorChanges() {
     });
 }
 
-function updateEditorPreview(imageId, diffusionToggle, previewImg) {
+function updateEditorPreview(imageId, diffusionToggle, previewImg, requestToken, loadingText = '正在渲染预览图...') {
     if (!imageId || !previewImg) {
         return;
     }
+    const previewWrap = previewImg.closest('.editor-preview');
+    setEditorPreviewState(previewWrap, 'loading', loadingText);
+
+    previewImg.addEventListener('load', () => {
+        if (requestToken !== editorPreviewRequestToken) {
+            return;
+        }
+        previewImg.classList.remove('img-loading');
+        previewImg.classList.remove('img-error');
+        setEditorPreviewState(previewWrap, 'ready', '预览生成完成');
+    }, { once: true });
+    previewImg.addEventListener('error', () => {
+        if (requestToken !== editorPreviewRequestToken) {
+            return;
+        }
+        previewImg.classList.remove('img-loading');
+        previewImg.classList.add('img-error');
+        setEditorPreviewState(previewWrap, 'error', '预览加载失败，请稍后重试');
+    }, { once: true });
+
     previewImg.classList.add('img-loading');
     const diffusion = diffusionToggle ? diffusionToggle.checked : false;
     previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageId)}&enable_color_diffusion=${diffusion}&t=${Date.now()}`;
+}
+
+function setEditorPreviewState(previewWrap, state, text) {
+    if (!previewWrap) {
+        return;
+    }
+    const machine = getEditorPreviewMachine(previewWrap);
+    if (state === 'loading') {
+        machine.setLoading(text || '正在生成预览图', '预计耗时 2-10 秒');
+        return;
+    }
+    if (state === 'ready') {
+        machine.setSuccess(text || '预览生成完成', '可继续编辑当前单元');
+        window.setTimeout(() => {
+            previewWrap.classList.remove('is-ready');
+        }, 900);
+        return;
+    }
+    if (state === 'error') {
+        machine.setError(text || '预览失败', '请检查图片资源或稍后重试');
+    }
+}
+
+function clearEditorPreviewTicker() {
+    document.querySelectorAll('.editor-preview').forEach((wrap) => {
+        if (wrap.__waitMachine) {
+            wrap.__waitMachine.destroy();
+            delete wrap.__waitMachine;
+        }
+    });
+}
+
+function ensureEditorPreviewOverlay(previewWrap) {
+    let overlay = previewWrap.querySelector('.editor-preview-overlay');
+    if (overlay) {
+        return overlay;
+    }
+
+    overlay = document.createElement('div');
+    overlay.className = 'editor-preview-overlay';
+    overlay.innerHTML = `
+        <span class="editor-preview-spinner" aria-hidden="true"></span>
+        <p class="editor-preview-text"></p>
+        <p class="editor-preview-meta"></p>
+    `;
+    previewWrap.appendChild(overlay);
+    return overlay;
+}
+
+function getEditorPreviewMachine(previewWrap) {
+    if (previewWrap.__waitMachine) {
+        return previewWrap.__waitMachine;
+    }
+
+    const overlay = ensureEditorPreviewOverlay(previewWrap);
+    const textEl = overlay.querySelector('.editor-preview-text');
+    const metaEl = overlay.querySelector('.editor-preview-meta');
+
+    previewWrap.__waitMachine = window.PaperPiUI.createWaitStateMachine({
+        onUpdate: ({ state, text, meta }) => {
+            previewWrap.classList.remove('is-loading', 'is-ready', 'is-error');
+
+            if (state === 'loading' || state === 'processing') {
+                previewWrap.classList.add('is-loading');
+            } else if (state === 'success') {
+                previewWrap.classList.add('is-ready');
+            } else if (state === 'error') {
+                previewWrap.classList.add('is-error');
+            }
+
+            if (textEl) {
+                textEl.textContent = text || '';
+            }
+            if (metaEl) {
+                metaEl.textContent = meta || '';
+            }
+        }
+    });
+
+    return previewWrap.__waitMachine;
 }
 
 function initPlaylistDragAndDrop() {
@@ -619,14 +724,14 @@ function initPlaylistDragAndDrop() {
             .then(response => response.json())
             .then(result => {
                 if (result.error) {
-                    alert(`更新排序失败：${result.error}`);
+                    window.PaperPiUI.toast(`更新排序失败：${result.error}`, 'error');
                     return;
                 }
                 loadPlaylists();
             })
             .catch(error => {
                 console.error('Error updating playlist order:', error);
-                alert('更新播放顺序失败');
+                window.PaperPiUI.toast('更新播放顺序失败', 'error');
             });
         });
     });
@@ -733,46 +838,144 @@ function openAddDuModal(playlistId) {
 // createPlaylistItem removed in favor of HTML render to reduce DOM churn
 
 // 编辑播放列表
-function editPlaylist(playlistId) {
-    const newName = prompt('输入新的播放列表名称');
-    if (!newName) {
+async function editPlaylist(playlistId) {
+    const current = cachedPlaylists.find((p) => p.id === playlistId);
+    const normalized = await askPlaylistName({
+        title: '重命名播放列表',
+        message: '名称规则：至少 2 个字符；不能包含 \\\\/:*?"<>|；不能与其他播放列表重名。',
+        initialValue: current && current.name ? current.name : '',
+        editingId: playlistId
+    });
+    if (!normalized) {
         return;
     }
+
     fetch(`/api/playlists/${playlistId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName })
+        body: JSON.stringify({ name: normalized })
     })
     .then(response => response.json())
     .then(result => {
         if (result.error) {
-            alert(`更新失败：${result.error}`);
+            window.PaperPiUI.toast(`更新失败：${result.error}`, 'error');
             return;
         }
+        window.PaperPiUI.toast('播放列表重命名成功', 'success');
         loadPlaylists();
     })
     .catch(error => {
         console.error('Error updating playlist:', error);
-        alert('更新播放列表失败');
+        window.PaperPiUI.toast('更新播放列表失败', 'error');
     });
 }
 
-// 删除播放列表
-function deletePlaylist(playlistId) {
-    if (confirm('确定要删除这个播放列表吗？')) {
-        fetch(`/api/playlists/${playlistId}`, {
-            method: 'DELETE'
-        })
-        .then(response => response.json())
-        .then(result => {
-            console.log('Playlist deleted:', result);
-            loadPlaylists();
-        })
-        .catch(error => {
-            console.error('Error deleting playlist:', error);
-            alert('删除播放列表失败');
+function normalizePlaylistName(name) {
+    return String(name || '').trim().replace(/\s+/g, ' ');
+}
+
+async function askPlaylistName({ title, message, initialValue, editingId }) {
+    let nextValue = initialValue || '';
+    while (true) {
+        const nameInput = await window.PaperPiUI.prompt({
+            title: title || '输入播放列表名称',
+            message: message || '',
+            value: nextValue,
+            placeholder: '例如：晨间看板',
+            okText: '保存',
+            cancelText: '取消'
         });
+        if (nameInput === null) {
+            return null;
+        }
+
+        const normalized = normalizePlaylistName(nameInput);
+        const validationError = validatePlaylistName(normalized, editingId || null, cachedPlaylists);
+        if (validationError) {
+            window.PaperPiUI.toast(validationError, 'warn');
+            nextValue = normalized;
+            continue;
+        }
+        return normalized;
     }
+}
+
+async function createPlaylistByName(name) {
+    try {
+        const result = await window.PaperPiUI.requestJSON('/api/playlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+
+        if (result && result.error) {
+            throw new Error(result.error);
+        }
+
+        window.PaperPiUI.toast('播放列表创建成功', 'success');
+        if (result && result.id && result.name) {
+            cachedPlaylists = [...cachedPlaylists, { id: result.id, name: result.name }];
+        }
+        loadPlaylists();
+    } catch (error) {
+        console.error('Error creating playlist:', error);
+        window.PaperPiUI.toast('创建播放列表失败', 'error');
+    }
+}
+
+function validatePlaylistName(name, editingId, playlists) {
+    if (!name) {
+        return '名称不能为空';
+    }
+    if (name.length < 2) {
+        return '名称至少需要 2 个字符';
+    }
+    if (name.length > 40) {
+        return '名称最多 40 个字符';
+    }
+    if (/[\\/:*?"<>|]/.test(name)) {
+        return '名称包含非法字符：\\\\ / : * ? \" < > |';
+    }
+    if (/[\u0000-\u001f]/.test(name)) {
+        return '名称包含不可见控制字符';
+    }
+
+    const exists = (playlists || []).some((item) => {
+        if (!item || item.id === editingId) {
+            return false;
+        }
+        return normalizePlaylistName(item.name).toLocaleLowerCase() === name.toLocaleLowerCase();
+    });
+    if (exists) {
+        return '名称已存在，请更换一个名称';
+    }
+    return '';
+}
+
+// 删除播放列表
+async function deletePlaylist(playlistId) {
+    const confirmed = await window.PaperPiUI.confirm({
+        title: '确认删除播放列表',
+        message: '删除后无法恢复，确定继续吗？',
+        okText: '删除',
+        cancelText: '取消'
+    });
+    if (!confirmed) {
+        return;
+    }
+
+    fetch(`/api/playlists/${playlistId}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(result => {
+        console.log('Playlist deleted:', result);
+        loadPlaylists();
+    })
+    .catch(error => {
+        console.error('Error deleting playlist:', error);
+        window.PaperPiUI.toast('删除播放列表失败', 'error');
+    });
 }
 
 function togglePlaylistPlayback(playlistId) {
@@ -823,7 +1026,7 @@ function removeDuFromPlaylist(playlistId, duId) {
     })
     .catch(error => {
         console.error('Error removing display unit from playlist:', error);
-        alert('从播放列表中移除显示单元失败');
+        window.PaperPiUI.toast('从播放列表中移除显示单元失败', 'error');
     });
 }
 
@@ -837,7 +1040,7 @@ function addToPlaylist(playlistId, duId) {
     .then(playlist => {
         // 检查显示单元是否已经在播放列表中
         if (playlist.display_units.includes(duId)) {
-            alert('显示单元已经在播放列表中');
+            window.PaperPiUI.toast('显示单元已经在播放列表中', 'warn');
             return Promise.reject('Display unit already in playlist');
         }
         
@@ -863,7 +1066,22 @@ function addToPlaylist(playlistId, duId) {
         console.error('Error adding display unit to playlist:', error);
         currentPlaylistId = null;
         if (error !== 'Display unit already in playlist') {
-            alert('添加显示单元到播放列表失败');
+            window.PaperPiUI.toast('添加显示单元到播放列表失败', 'error');
         }
     });
 }
+
+
+window.PaperPiPages = window.PaperPiPages || {};
+window.PaperPiPages.admin = {
+    init: initAdminPage,
+    destroy: () => {
+        clearEditorPreviewTicker();
+    }
+};
+
+window.addEventListener('DOMContentLoaded', function() {
+    if (document.getElementById('playlist-list')) {
+        initAdminPage();
+    }
+});

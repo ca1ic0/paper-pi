@@ -1,6 +1,4 @@
-window.addEventListener('DOMContentLoaded', () => {
-    initText2ImagePage();
-});
+var ui = window.PaperPiUI;
 
 function initText2ImagePage() {
     document.body.classList.add('is-loaded');
@@ -16,6 +14,36 @@ function initText2ImagePage() {
     const resultLibrary = document.getElementById('result-library');
     const previewBtn = document.getElementById('preview-on-epaper');
     const previewStatus = document.getElementById('preview-status');
+    const previewMachine = ui.createWaitStateMachine({
+        onUpdate: ({ state, text, meta }) => {
+            if (state === 'idle') {
+                previewStatus.style.display = 'none';
+                previewStatus.innerHTML = '';
+                return;
+            }
+
+            previewStatus.style.display = 'block';
+            if (state === 'loading' || state === 'processing') {
+                previewStatus.innerHTML = `
+                    <div class="status-note processing">
+                        <span class="status-inline-spinner" aria-hidden="true"></span>
+                        <span>${text || ''}</span>
+                        <small>${meta || ''}</small>
+                    </div>
+                `;
+                return;
+            }
+
+            if (state === 'success') {
+                previewStatus.innerHTML = `<div class="status-note success">${text || ''}</div>`;
+                return;
+            }
+
+            if (state === 'error') {
+                previewStatus.innerHTML = `<div class="status-note error">${text || ''}<small>${meta || ''}</small></div>`;
+            }
+        }
+    });
 
     let currentImageData = null;
 
@@ -23,13 +51,15 @@ function initText2ImagePage() {
         return;
     }
 
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
 
         const promptInput = document.getElementById('prompt');
+        const submitBtn = form.querySelector('button[type="submit"]');
         const prompt = promptInput ? promptInput.value.trim() : '';
+
         if (!prompt) {
-            alert('请输入图片描述');
+            ui.toast('请输入图片描述', 'warn');
             return;
         }
 
@@ -37,29 +67,24 @@ function initText2ImagePage() {
         loading.style.display = 'block';
         error.style.display = 'none';
         resultContent.style.display = 'none';
-        previewStatus.style.display = 'none';
+        previewMachine.reset();
+        ui.setButtonBusy(submitBtn, true, '生成中...');
 
-        fetch('/api/text2image', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ prompt })
-        })
-        .then((response) => response.json())
-        .then((data) => {
-            loading.style.display = 'none';
+        try {
+            const data = await ui.requestJSON('/api/text2image', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt })
+            });
 
             if (data.error) {
-                error.textContent = data.error;
-                error.style.display = 'block';
-                return;
+                throw new Error(data.error);
             }
 
             if (!data.image_url || !data.save_path) {
-                error.textContent = '生成结果不完整，请稍后重试';
-                error.style.display = 'block';
-                return;
+                throw new Error('生成结果不完整，请稍后重试');
             }
 
             resultImage.src = data.image_url;
@@ -69,53 +94,70 @@ function initText2ImagePage() {
                 : '图片库：未保存';
             resultTime.textContent = `生成时间：${new Date().toLocaleString()}`;
             resultContent.style.display = 'block';
+            ui.toast('图片生成完成', 'success');
 
             currentImageData = {
                 save_path: data.save_path,
                 image_id: data.image_id || null
             };
-        })
-        .catch((err) => {
+        } catch (err) {
             console.error('Error:', err);
-            loading.style.display = 'none';
-            error.textContent = '生成图片失败，请稍后重试';
+            error.textContent = err.message || '生成图片失败，请稍后重试';
             error.style.display = 'block';
-        });
+            ui.toast(error.textContent, 'error');
+        } finally {
+            loading.style.display = 'none';
+            ui.setButtonBusy(submitBtn, false);
+        }
     });
 
     if (previewBtn) {
-        previewBtn.addEventListener('click', () => {
+        previewBtn.addEventListener('click', async () => {
             if (!currentImageData) {
-                alert('请先生成图片');
+                ui.toast('请先生成图片', 'warn');
                 return;
             }
 
-            previewStatus.style.display = 'block';
-            previewStatus.innerHTML = '<div class="loading"></div>';
+            previewMachine.setLoading('正在发送预览命令', '预计耗时 1-5 秒');
+            ui.setButtonBusy(previewBtn, true, '预览中...');
 
-            fetch('/api/test-display', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    type: 'ImageDisplayUnit',
-                    image_id: currentImageData.image_id,
-                    image_path: currentImageData.save_path
-                })
-            })
-            .then((response) => response.json())
-            .then((data) => {
+            try {
+                const data = await ui.requestJSON('/api/test-display', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'ImageDisplayUnit',
+                        image_id: currentImageData.image_id,
+                        image_path: currentImageData.save_path
+                    })
+                });
+
                 if (data.error) {
-                    previewStatus.innerHTML = `<div class="error">预览失败：${data.error}</div>`;
-                    return;
+                    throw new Error(data.error);
                 }
-                previewStatus.innerHTML = `<div class="status-note success">${data.message}</div>`;
-            })
-            .catch((err) => {
+
+                previewMachine.setSuccess(data.message || '预览请求已发送', '设备端开始执行预览');
+                ui.toast('已发送到墨水屏预览', 'success');
+            } catch (err) {
                 console.error('Error:', err);
-                previewStatus.innerHTML = '<div class="error">预览失败，请稍后重试</div>';
-            });
+                previewMachine.setError(`预览失败：${err.message || '请稍后重试'}`, '请检查设备连接后重试');
+                ui.toast('预览失败', 'error');
+            } finally {
+                ui.setButtonBusy(previewBtn, false);
+            }
         });
     }
 }
+
+window.PaperPiPages = window.PaperPiPages || {};
+window.PaperPiPages.text2image = {
+    init: initText2ImagePage
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('text2image-form')) {
+        initText2ImagePage();
+    }
+});

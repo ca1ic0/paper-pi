@@ -1,15 +1,11 @@
-// 图片库页面脚本
-
-window.addEventListener('DOMContentLoaded', function() {
-    initLibraryPage();
-});
+var ui = window.PaperPiUI;
 
 function initLibraryPage() {
     document.body.classList.add('is-loaded');
     initUploadControls();
     initBatchControls();
     initRefreshControl();
-    loadImageLibrary();
+    loadImageLibrary({ showSkeleton: true });
 }
 
 function initUploadControls() {
@@ -46,37 +42,60 @@ function initUploadControls() {
     }
 }
 
-function uploadFile(file) {
+async function uploadFile(file) {
+    const uploadBtn = document.getElementById('library-upload-btn');
     const formData = new FormData();
     formData.append('file', file);
 
-    fetch('/api/image-library/upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(result => {
+    ui.setButtonBusy(uploadBtn, true, '上传中...');
+
+    try {
+        const result = await ui.requestJSON('/api/image-library/upload', {
+            method: 'POST',
+            body: formData
+        });
+
         if (result.error) {
-            alert(`上传失败：${result.error}`);
-            return;
+            throw new Error(result.error);
         }
-        loadImageLibrary();
-    })
-    .catch(error => {
+
+        ui.toast('上传成功，正在刷新列表', 'success');
+        await loadImageLibrary();
+    } catch (error) {
         console.error('Error uploading image:', error);
-        alert('上传图片失败');
-    });
+        ui.toast(`上传失败：${error.message || '请稍后重试'}`, 'error');
+    } finally {
+        ui.setButtonBusy(uploadBtn, false);
+    }
 }
 
-function loadImageLibrary() {
-    fetch('/api/image-library')
-    .then(response => response.json())
-    .then(images => {
+async function loadImageLibrary({ showSkeleton = false } = {}) {
+    const grid = document.getElementById('library-grid');
+    const refreshBtn = document.getElementById('library-refresh-btn');
+    if (!grid) {
+        return;
+    }
+
+    if (showSkeleton) {
+        ui.renderSkeleton(grid, 8);
+    }
+
+    if (refreshBtn) {
+        refreshBtn.classList.add('is-spinning');
+    }
+
+    try {
+        const images = await ui.requestJSON('/api/image-library');
         renderLibraryGrid(images);
-    })
-    .catch(error => {
+    } catch (error) {
         console.error('Error loading image library:', error);
-    });
+        grid.innerHTML = '<p class="error-message">加载图片库失败，请稍后重试。</p>';
+        ui.toast(error.message || '加载失败', 'error');
+    } finally {
+        if (refreshBtn) {
+            refreshBtn.classList.remove('is-spinning');
+        }
+    }
 }
 
 function renderLibraryGrid(images) {
@@ -87,7 +106,7 @@ function renderLibraryGrid(images) {
     grid.innerHTML = '';
 
     if (!images || images.length === 0) {
-        grid.innerHTML = '<p class="error-message">图片库为空</p>';
+        grid.innerHTML = '<p class="error-message">图片库为空，先上传一张图片开始。</p>';
         return;
     }
 
@@ -99,14 +118,14 @@ function renderLibraryGrid(images) {
         div.dataset.imageId = item.id;
         div.innerHTML = `
             <div class="library-thumb">
-                <img class="img-loading" loading="lazy" src="/api/image-library/${item.id}/file?t=${Date.now()}" alt="${item.original_name}">
+                <img class="img-loading" loading="lazy" src="/api/image-library/${item.id}/file?t=${Date.now()}" alt="${escapeHtml(item.original_name)}">
                 <span class="library-status ${item.status || 'ready'}">${statusLabel(item.status)}</span>
                 <label class="library-check">
                     <input type="checkbox" ${batchMode ? '' : 'disabled'}>
                     <span></span>
                 </label>
             </div>
-            <div class="library-name">${item.original_name}</div>
+            <div class="library-name">${escapeHtml(item.original_name)}</div>
         `;
         div.addEventListener('click', (e) => {
             const checkbox = div.querySelector('input[type="checkbox"]');
@@ -128,7 +147,7 @@ function renderLibraryGrid(images) {
 
 function attachImageLoadingHandlers(root) {
     const imgs = root.querySelectorAll('img.img-loading');
-    imgs.forEach(img => {
+    imgs.forEach((img) => {
         img.addEventListener('load', () => img.classList.remove('img-loading'), { once: true });
         img.addEventListener('error', () => {
             img.classList.remove('img-loading');
@@ -163,33 +182,46 @@ function initBatchControls() {
         renderLibraryGridFromDom();
     });
 
-    deleteBtn.addEventListener('click', () => {
+    deleteBtn.addEventListener('click', async () => {
         const selected = Array.from(grid.querySelectorAll('.library-item.selected'))
-            .map(el => el.dataset.imageId);
+            .map((el) => el.dataset.imageId);
+
         if (selected.length === 0) {
             return;
         }
-        if (!confirm(`确定删除 ${selected.length} 张图片吗？`)) {
+
+        const confirmed = await ui.confirm({
+            title: '确认删除图片',
+            message: `确定删除 ${selected.length} 张图片吗？此操作不可撤销。`,
+            okText: '删除',
+            cancelText: '取消'
+        });
+        if (!confirmed) {
             return;
         }
-        fetch('/api/image-library/batch-delete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image_ids: selected })
-        })
-        .then(response => response.json())
-        .then(result => {
+
+        ui.setButtonBusy(deleteBtn, true, '删除中...');
+
+        try {
+            const result = await ui.requestJSON('/api/image-library/batch-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_ids: selected })
+            });
+
             if (result.error) {
-                alert(`删除失败：${result.error}`);
-                return;
+                throw new Error(result.error);
             }
-            loadImageLibrary();
-            deleteBtn.disabled = true;
-        })
-        .catch(error => {
+
+            ui.toast(`已删除 ${selected.length} 张图片`, 'success');
+            await loadImageLibrary();
+        } catch (error) {
             console.error('Error deleting images:', error);
-            alert('删除失败');
-        });
+            ui.toast(`删除失败：${error.message || '请稍后重试'}`, 'error');
+        } finally {
+            ui.setButtonBusy(deleteBtn, false);
+            deleteBtn.disabled = true;
+        }
     });
 }
 
@@ -220,7 +252,7 @@ function renderLibraryGridFromDom() {
     }
     const items = Array.from(grid.querySelectorAll('.library-item'));
     const batchMode = grid.classList.contains('batch-mode');
-    items.forEach(item => {
+    items.forEach((item) => {
         const checkbox = item.querySelector('input[type="checkbox"]');
         if (checkbox) {
             checkbox.disabled = !batchMode;
@@ -231,3 +263,26 @@ function renderLibraryGridFromDom() {
         }
     });
 }
+
+function escapeHtml(text) {
+    if (typeof text !== 'string') {
+        return '';
+    }
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+window.PaperPiPages = window.PaperPiPages || {};
+window.PaperPiPages.library = {
+    init: initLibraryPage
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('library-grid')) {
+        initLibraryPage();
+    }
+});

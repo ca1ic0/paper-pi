@@ -251,5 +251,56 @@
     "display_time": 10,
     "type": "WeatherDisplayUnit",
     "location": "101010100"
+  },
+  "44": {
+    "name": "",
+    "display_time": 10,
+    "type": "ImageDisplayUnit",
+    "image_path": null,
+    "image_id": "07375a75364043bebf0b603880c1b196",
+    "enable_color_diffusion": false
+  },
+  "45": {
+    "name": "",
+    "display_time": 10,
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": ""
+  },
+  "46": {
+    "name": "",
+    "display_time": 10,
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": "\u82e6\u547d\u9e33\u9e2f"
+  },
+  "47": {
+    "name": "",
+    "display_time": 10,
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": "\u82e6\u547d\u9e33\u9e2f"
+  },
+  "48": {
+    "name": "",
+    "display_time": 10,
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": "\u82e6\u547d\u9e33\u9e2f"
+  },
+  "49": {
+    "name": "",
+    "display_time": 10,
+    "type": "EmptyDisplayUnit"
+  },
+  "50": {
+    "name": "",
+    "display_time": 10,
+    "type": "ImageDisplayUnit",
+    "image_path": null,
+    "image_id": "0a176887dd7244f78ed2de38e4e2da0d",
+    "enable_color_diffusion": false
+  },
+  "51": {
+    "name": "",
+    "display_time": 10,
+    "type": "PoetryDisplayUnit",
+    "mood_prompt": ""
   }
 }
