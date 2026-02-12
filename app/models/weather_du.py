@@ -14,7 +14,7 @@ import threading
 class WeatherDisplayUnit(DisplayUnit):
     """天气显示单元：每日首次生成背景图并缓存"""
 
-    def __init__(self, name, location, display_time=120):
+    def __init__(self, name, location, display_time=600):
         super().__init__(name, display_time)
         self.location = location
         self.weather_service = WeatherService()
@@ -136,12 +136,22 @@ class WeatherDisplayUnit(DisplayUnit):
 
         title_font = self._load_font(42)
         temp_font = self._load_font(50)
-        value_font = self._load_font(24)
+        value_font = self._load_font(22)
         meta_font = self._load_font(18)
 
         def text_size(text, font):
             box = draw.textbbox((0, 0), text, font=font)
             return box[2] - box[0], box[3] - box[1]
+
+        def draw_text_top(x, y, text, font, fill, align="left"):
+            box = draw.textbbox((0, 0), text, font=font)
+            w = box[2] - box[0]
+            h = box[3] - box[1]
+            tx = x if align == "left" else x - w
+            # Normalize font top offset to keep different fonts/glyphs aligned visually
+            ty = y - box[1]
+            draw.text((tx, ty), text, fill=fill, font=font)
+            return w, h
 
         left_x = card_x + 22
         right_x = card_x + card_w - 24
@@ -157,23 +167,22 @@ class WeatherDisplayUnit(DisplayUnit):
         wind_direction = str(wind_dir or "--")
         vis_value = str(vis if vis not in (None, "") else "--")
 
-        draw.text((left_x, header_y), date_main, fill=(210, 223, 236, 226), font=meta_font)
+        _, date_h = draw_text_top(left_x, header_y, date_main, meta_font, (210, 223, 236, 226))
 
         icon_size = 56
         icon_x = left_x
-        icon_y = header_y + 26
+        icon_y = header_y + date_h + 6
         self._draw_weather_icon(draw, self._weather_icon_kind(weather_main), icon_x, icon_y, icon_size)
 
         weather_x = icon_x + icon_size + 12
         weather_y = icon_y + 2
-        draw.text((weather_x, weather_y), weather_main, fill=(255, 255, 255, 242), font=title_font)
+        draw_text_top(weather_x, weather_y, weather_main, title_font, (255, 255, 255, 242))
 
         temp_text = f"{temp_value}°C"
-        temp_w, _ = text_size(temp_text, temp_font)
-        draw.text((right_x - temp_w, header_y + 34), temp_text, fill=(242, 250, 255, 238), font=temp_font)
+        temp_top = header_y + 18
+        _, temp_h = draw_text_top(right_x, temp_top, temp_text, temp_font, (242, 250, 255, 238), align="right")
         temp_label = "当前气温"
-        label_w, _ = text_size(temp_label, meta_font)
-        draw.text((right_x - label_w, header_y + 84), temp_label, fill=(174, 194, 214, 222), font=meta_font)
+        draw_text_top(right_x, temp_top + temp_h + 2, temp_label, meta_font, (174, 194, 214, 222), align="right")
 
         draw.line(
             [(card_x + 18, sep_y), (card_x + card_w - 18, sep_y)],
@@ -187,9 +196,12 @@ class WeatherDisplayUnit(DisplayUnit):
             ("风力", f"{wind_level}级"),
             ("能见度", f"{vis_value}km"),
         ]
+        ups_value = f"{ups_percent}%" if ups_percent is not None else "无电池"
+        metrics.append(("UPS电量", ups_value))
 
         grid_top = sep_y + 14
-        col_w = (card_w - 36) // 4
+        col_count = max(1, len(metrics))
+        col_w = (card_w - 36) // col_count
         for i, (label, value) in enumerate(metrics):
             col_x = card_x + 18 + i * col_w
             if i > 0:
@@ -198,13 +210,8 @@ class WeatherDisplayUnit(DisplayUnit):
                     fill=(255, 255, 255, 24),
                     width=1,
                 )
-            draw.text((col_x + 10, grid_top + 4), label, fill=(170, 190, 210, 220), font=meta_font)
-            draw.text((col_x + 10, grid_top + 26), value, fill=(236, 246, 255, 236), font=value_font)
-
-        if ups_percent is not None:
-            ups_text = f"UPS电量 {ups_percent}%"
-            ups_y = grid_top + 64
-            draw.text((card_x + 22, ups_y), ups_text, fill=(210, 230, 245, 220), font=meta_font)
+            _, metric_label_h = draw_text_top(col_x + 10, grid_top + 4, label, meta_font, (170, 190, 210, 220))
+            draw_text_top(col_x + 10, grid_top + 8 + metric_label_h, value, value_font, (236, 246, 255, 236))
 
         composed = Image.alpha_composite(base, overlay).convert("RGB")
         image.paste(composed)
@@ -332,5 +339,5 @@ class WeatherDisplayUnit(DisplayUnit):
         return cls(
             data.get("name", "Weather DU"),
             data.get("location", ""),
-            data.get("display_time", 120),
+            data.get("display_time", 600),
         )

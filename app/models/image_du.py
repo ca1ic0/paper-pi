@@ -9,12 +9,12 @@ import os
 class ImageDisplayUnit(DisplayUnit):
     """图片显示单元，用于显示静态图片"""
     
-    def __init__(self, name, image_path=None, display_time=120, image_id=None, enable_color_diffusion=False):
+    def __init__(self, name, image_path=None, display_time=600, image_id=None, enable_color_diffusion=False):
         """
         初始化图片显示单元
         :param name: 显示单元名称
         :param image_path: 图片路径
-        :param display_time: 显示时间（秒），默认10秒
+        :param display_time: 显示时间（秒），默认600秒（10分钟）
         :param image_id: 图片库ID
         """
         super().__init__(name, display_time)
@@ -65,7 +65,7 @@ class ImageDisplayUnit(DisplayUnit):
         return cls(
             data.get("name", "Image DU"),
             data.get("image_path"),
-            data.get("display_time", 120),
+            data.get("display_time", 600),
             data.get("image_id"),
             data.get("enable_color_diffusion", False),
         )

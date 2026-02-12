@@ -6,7 +6,7 @@ from PIL import Image
 class EmptyDisplayUnit(DisplayUnit):
     """空显示单元，用于刷新墨水屏幕的白色图片"""
     
-    def __init__(self, name="Empty DU", display_time=120):
+    def __init__(self, name="Empty DU", display_time=600):
         """
         初始化空显示单元
         :param name: 显示单元名称
@@ -27,7 +27,7 @@ class EmptyDisplayUnit(DisplayUnit):
     def from_dict(cls, data):
         return cls(
             data.get("name", "Empty DU"),
-            data.get("display_time", 120),
+            data.get("display_time", 600),
         )
     
     def to_dict(self):

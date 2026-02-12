@@ -9,7 +9,7 @@ import os
 class PoetryDisplayUnit(DisplayUnit):
     """唐诗绝句单元：每次播放生成一首绝句并绘制"""
 
-    def __init__(self, name="唐诗绝句", display_time=120, mood_prompt=None):
+    def __init__(self, name="唐诗绝句", display_time=600, mood_prompt=None):
         super().__init__(name, display_time)
         self.llm_service = LLMServices()
         self.mood_prompt = mood_prompt
@@ -67,7 +67,7 @@ class PoetryDisplayUnit(DisplayUnit):
     def from_dict(cls, data):
         return cls(
             data.get("name", "唐诗绝句"),
-            data.get("display_time", 120),
+            data.get("display_time", 600),
             data.get("mood_prompt"),
         )
 
