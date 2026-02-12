@@ -1,4 +1,4 @@
-from lib.ina219 import read_ups_percent
+from lib.ina219 import INA219
 from app.config import RUN_MODE
 
 
@@ -10,4 +10,11 @@ class INA219Service:
     def get_ups_percent(self):
         if RUN_MODE == "debug":
             return 100
-        return read_ups_percent(addr=self.addr, i2c_bus=self.i2c_bus)
+        ina = INA219(i2c_bus=self.i2c_bus, addr=self.addr)
+        bus_voltage = ina.getBusVoltage_V()
+        percent = (bus_voltage - 3) / 1.2 * 100
+        if percent > 100:
+            percent = 100
+        if percent < 0:
+            percent = 0
+        return round(percent, 1)
