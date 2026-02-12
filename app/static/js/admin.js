@@ -33,6 +33,49 @@ function normalizePlaylistId(id) {
     return String(id);
 }
 
+function initAutoPinToggle() {
+    const toggleBtn = document.getElementById('auto-pin-playing-toggle');
+    if (!toggleBtn) {
+        return;
+    }
+    updateAutoPinToggleUI(toggleBtn);
+    toggleBtn.addEventListener('click', () => {
+        autoPinPlayingEnabled = !autoPinPlayingEnabled;
+        localStorage.setItem(AUTO_PIN_STORAGE_KEY, autoPinPlayingEnabled ? '1' : '0');
+        updateAutoPinToggleUI(toggleBtn);
+        loadPlaylists();
+    });
+}
+
+function updateAutoPinToggleUI(toggleBtn) {
+    if (!toggleBtn) {
+        return;
+    }
+    toggleBtn.classList.toggle('is-active', autoPinPlayingEnabled);
+    toggleBtn.textContent = `当前播放列表自动置顶：${autoPinPlayingEnabled ? '开' : '关'}`;
+}
+
+function getDisplayOrderPlaylists(playlists) {
+    if (!Array.isArray(playlists)) {
+        return [];
+    }
+    if (!autoPinPlayingEnabled || !activePlaylistId) {
+        return playlists;
+    }
+
+    const targetId = normalizePlaylistId(activePlaylistId);
+    const indexed = playlists.map((item, idx) => ({ item, idx }));
+    indexed.sort((a, b) => {
+        const aPinned = normalizePlaylistId(a.item && a.item.id) === targetId ? 1 : 0;
+        const bPinned = normalizePlaylistId(b.item && b.item.id) === targetId ? 1 : 0;
+        if (aPinned !== bPinned) {
+            return bPinned - aPinned;
+        }
+        return a.idx - b.idx;
+    });
+    return indexed.map((entry) => entry.item);
+}
+
 // 初始化模态框
 function initModals() {
     const addPlaylistBtn = document.getElementById('add-playlist-btn');
@@ -243,7 +286,8 @@ function loadPlaylists() {
 }
 
 function renderPlaylists(container, playlists) {
-    const html = playlists.map((playlist, idx) => {
+    const orderedPlaylists = getDisplayOrderPlaylists(playlists);
+    const html = orderedPlaylists.map((playlist, idx) => {
         const item = createPlaylistItemHTML(playlist);
         return item.replace('data-reveal-index=""', `data-reveal-index="${idx + 1}"`);
     }).join('');
@@ -254,6 +298,12 @@ function renderPlaylists(container, playlists) {
         item.style.setProperty('--i', item.dataset.revealIndex || 1);
     });
     attachImageLoadingHandlers(container);
+    if (autoPinPlayingEnabled && activePlaylistId) {
+        const activeEl = container.querySelector('.playlist-item.is-playing');
+        if (activeEl) {
+            activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
 }
 
 function createPlaylistItemHTML(playlist) {

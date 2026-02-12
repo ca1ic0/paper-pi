@@ -8,7 +8,10 @@
 <main class="main admin-main reveal" style="--i: 1;">
     <div class="admin-header">
         <h3>播放列表管理</h3>
-        <button class="btn btn-primary" id="add-playlist-btn">添加播放列表</button>
+        <div class="admin-actions">
+            <button class="btn btn-secondary" id="auto-pin-playing-toggle" type="button">当前播放列表自动置顶：关</button>
+            <button class="btn btn-primary" id="add-playlist-btn">添加播放列表</button>
+        </div>
     </div>
 
     <div class="playlist-list" id="playlist-list">
@@ -107,7 +110,7 @@
                     </div>
                     <div class="form-group">
                         <label for="du-display-time">显示时间（秒）</label>
-                        <input type="number" id="du-display-time" name="display_time" min="1" value="10">
+                        <input type="number" id="du-display-time" name="display_time" min="1" value="120">
                     </div>
                 </div>
 
