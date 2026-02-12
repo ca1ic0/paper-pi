@@ -3,6 +3,7 @@ from app.services.weather_service import WeatherService
 from app.services.weather_cache_service import WeatherCacheService
 from app.services.image_library_service import ImageLibraryService
 from app.services.image_gen_service import ImageGenService
+from app.services.ina219_service import INA219Service
 from app.config import SCREEN_WIDTH, SCREEN_HEIGHT, WEATHER_FONT_PATH
 from PIL import Image, ImageDraw, ImageFont, ImageStat
 import os
@@ -108,7 +109,7 @@ class WeatherDisplayUnit(DisplayUnit):
                 fill=(255, 221, 120, 235),
             )
 
-    def _draw_weather_text(self, image, date_text, weather_text, temp, humidity, wind_dir, wind_scale, vis):
+    def _draw_weather_text(self, image, date_text, weather_text, temp, humidity, wind_dir, wind_scale, vis, ups_percent=None):
         base = image.convert("RGBA")
         overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
@@ -200,6 +201,11 @@ class WeatherDisplayUnit(DisplayUnit):
             draw.text((col_x + 10, grid_top + 4), label, fill=(170, 190, 210, 220), font=meta_font)
             draw.text((col_x + 10, grid_top + 26), value, fill=(236, 246, 255, 236), font=value_font)
 
+        if ups_percent is not None:
+            ups_text = f"UPS电量 {ups_percent}%"
+            ups_y = grid_top + 64
+            draw.text((card_x + 22, ups_y), ups_text, fill=(210, 230, 245, 220), font=meta_font)
+
         composed = Image.alpha_composite(base, overlay).convert("RGB")
         image.paste(composed)
 
@@ -273,6 +279,11 @@ class WeatherDisplayUnit(DisplayUnit):
                 background = self.image_gen_service.generate_image(
                     prompt, display_size=(SCREEN_WIDTH, SCREEN_HEIGHT)
                 )
+                try:
+                    ups_percent = INA219Service().get_ups_percent()
+                except Exception:
+                    ups_percent = None
+
                 self._draw_weather_text(
                     background,
                     date_text,
@@ -282,6 +293,7 @@ class WeatherDisplayUnit(DisplayUnit):
                     wind_dir,
                     wind_scale,
                     vis,
+                    ups_percent,
                 )
 
                 self.image_library_service.update_item(
