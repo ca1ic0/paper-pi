@@ -1,8 +1,20 @@
 pic/
-venv/
 LOG/
-.venv/
+storage/*
+
+# Python
 __pycache__/
+*.py[cod]
+*.pyd
+.pytest_cache/
+
+# Virtualenv
+venv/
+.venv/
+
+# Env / secrets
 .env
 *.pem
-.env
+
+# OS
+.DS_Store
