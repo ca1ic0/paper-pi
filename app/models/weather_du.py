@@ -28,61 +28,105 @@ class WeatherDisplayUnit(DisplayUnit):
         )
 
     def _draw_weather_text(self, image, date_text, weather_text, temp, humidity, wind_dir, wind_scale, vis):
-        # High-end UI: translucent glass card + hierarchy
         base = image.convert("RGBA")
         overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
-        card_w = int(SCREEN_WIDTH * 0.78)
-        card_h = int(SCREEN_HEIGHT * 0.46)
+        card_w = int(SCREEN_WIDTH * 0.84)
+        card_h = int(SCREEN_HEIGHT * 0.52)
         card_x = (SCREEN_WIDTH - card_w) // 2
-        card_y = (SCREEN_HEIGHT - card_h) // 2
-        radius = 18
+        card_y = int(SCREEN_HEIGHT * 0.2)
+        radius = 20
 
-        # Glass card background
         draw.rounded_rectangle(
             (card_x, card_y, card_x + card_w, card_y + card_h),
             radius=radius,
-            fill=(8, 12, 20, 170),
+            fill=(7, 12, 22, 176),
             outline=(255, 255, 255, 40),
             width=2,
         )
 
-        # Accent line
         draw.rounded_rectangle(
-            (card_x + 16, card_y + 14, card_x + 120, card_y + 18),
+            (card_x + 24, card_y + 18, card_x + 168, card_y + 23),
             radius=6,
             fill=(6, 182, 212, 220),
         )
 
-        title_font = self._load_font(60)
-        sub_font = self._load_font(30)
-        meta_font = self._load_font(24)
+        title_font = self._load_font(58)
+        temp_font = self._load_font(72)
+        sub_font = self._load_font(27)
+        meta_font = self._load_font(22)
 
-        # Layout inside card
-        padding_x = 28
-        y = card_y + 30
+        def text_size(text, font):
+            box = draw.textbbox((0, 0), text, font=font)
+            return box[2] - box[0], box[3] - box[1]
 
-        # Date
-        draw.text((card_x + padding_x, y), date_text, fill=(220, 230, 240, 220), font=meta_font)
-        y += 34
+        left_pad = 30
+        right_pad = 28
+        top_pad = 34
+        header_h = 178
+        left_x = card_x + left_pad
+        header_y = card_y + top_pad
+        right_x = card_x + int(card_w * 0.56)
 
-        # Weather main
-        draw.text((card_x + padding_x, y), weather_text, fill=(255, 255, 255, 240), font=title_font)
-        y += 74
+        weather_main = str(weather_text or "未知天气")
+        date_main = str(date_text or self.weather_service.today_key())
 
-        # Temp / Humidity row
-        line1 = f"温度 {temp}°C"
-        line2 = f"湿度 {humidity}%"
-        draw.text((card_x + padding_x, y), line1, fill=(200, 220, 240, 220), font=sub_font)
-        draw.text((card_x + card_w // 2, y), line2, fill=(200, 220, 240, 220), font=sub_font)
-        y += 42
+        temp_value = str(temp if temp not in (None, "") else "--")
+        humidity_value = str(humidity if humidity not in (None, "") else "--")
+        wind_level = str(wind_scale if wind_scale not in (None, "") else "--")
+        wind_direction = str(wind_dir or "--")
+        vis_value = str(vis if vis not in (None, "") else "--")
 
-        # Wind / Visibility row
-        line3 = f"{wind_dir}  风力 {wind_scale}级"
-        line4 = f"能见度 {vis}km"
-        draw.text((card_x + padding_x, y), line3, fill=(190, 205, 220, 220), font=sub_font)
-        draw.text((card_x + card_w // 2, y), line4, fill=(190, 205, 220, 220), font=sub_font)
+        draw.text((left_x, header_y), date_main, fill=(208, 220, 235, 232), font=meta_font)
+
+        date_w, date_h = text_size(date_main, meta_font)
+        weather_y = header_y + date_h + 14
+        draw.text((left_x, weather_y), weather_main, fill=(255, 255, 255, 242), font=title_font)
+
+        temp_text = f"{temp_value}°"
+        temp_w, temp_h = text_size(temp_text, temp_font)
+        temp_y = header_y + 8
+        draw.text((right_x + right_pad, temp_y), temp_text, fill=(246, 252, 255, 240), font=temp_font)
+        draw.text((right_x + right_pad + temp_w + 8, temp_y + temp_h - 34), "C", fill=(188, 206, 226, 230), font=sub_font)
+        draw.text((right_x + right_pad, temp_y + temp_h + 8), "当前气温", fill=(176, 196, 214, 228), font=meta_font)
+
+        sep_y = card_y + header_h
+        draw.line(
+            [(card_x + 22, sep_y), (card_x + card_w - 22, sep_y)],
+            fill=(255, 255, 255, 36),
+            width=2,
+        )
+
+        grid_top = sep_y + 18
+        grid_left = card_x + 24
+        grid_gap = 14
+        grid_w = card_w - 48
+        cell_w = (grid_w - grid_gap) // 2
+        cell_h = 74
+
+        metrics = [
+            ("湿度", f"{humidity_value}%"),
+            ("风向", wind_direction),
+            ("风力", f"{wind_level}级"),
+            ("能见度", f"{vis_value}km"),
+        ]
+
+        for i, (label, value) in enumerate(metrics):
+            row = i // 2
+            col = i % 2
+            cell_x = grid_left + col * (cell_w + grid_gap)
+            cell_y = grid_top + row * (cell_h + 12)
+
+            draw.rounded_rectangle(
+                (cell_x, cell_y, cell_x + cell_w, cell_y + cell_h),
+                radius=12,
+                fill=(12, 22, 36, 128),
+                outline=(255, 255, 255, 28),
+                width=1,
+            )
+            draw.text((cell_x + 14, cell_y + 11), label, fill=(175, 194, 212, 226), font=meta_font)
+            draw.text((cell_x + 14, cell_y + 36), value, fill=(236, 246, 255, 236), font=sub_font)
 
         composed = Image.alpha_composite(base, overlay).convert("RGB")
         image.paste(composed)
