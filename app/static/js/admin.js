@@ -52,6 +52,7 @@ function updateAutoPinToggleUI(toggleBtn) {
         return;
     }
     toggleBtn.classList.toggle('is-active', autoPinPlayingEnabled);
+    toggleBtn.setAttribute('aria-pressed', autoPinPlayingEnabled ? 'true' : 'false');
     toggleBtn.textContent = `当前播放列表自动置顶：${autoPinPlayingEnabled ? '开' : '关'}`;
 }
 
