@@ -13,7 +13,7 @@ import threading
 class WeatherDisplayUnit(DisplayUnit):
     """天气显示单元：每日首次生成背景图并缓存"""
 
-    def __init__(self, name, location, display_time=30):
+    def __init__(self, name, location, display_time=120):
         super().__init__(name, display_time)
         self.location = location
         self.weather_service = WeatherService()
@@ -27,47 +27,125 @@ class WeatherDisplayUnit(DisplayUnit):
             f"今日天气：{weather_text}，气温 {temp}°C。"
         )
 
+    def _weather_icon_kind(self, weather_text):
+        text = str(weather_text or "")
+        if "雷" in text:
+            return "thunder"
+        if "雪" in text or "冰" in text:
+            return "snow"
+        if "雨" in text:
+            return "rain"
+        if "雾" in text or "霾" in text:
+            return "fog"
+        if "晴" in text:
+            return "sunny"
+        if "云" in text or "阴" in text:
+            return "cloudy"
+        return "cloudy"
+
+    def _draw_weather_icon(self, draw, kind, x, y, size):
+        sun = (255, 209, 102, 235)
+        cloud = (229, 238, 248, 228)
+        rain = (120, 188, 255, 235)
+        snow = (220, 242, 255, 240)
+
+        if kind in ("sunny", "thunder"):
+            cx = x + size * 0.34
+            cy = y + size * 0.34
+            r = size * 0.2
+            draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=sun)
+            for i in range(8):
+                dx = (size * 0.33) * (1 if i % 2 == 0 else 0.75)
+                dy = 0
+                if i in (1, 2):
+                    dx, dy = dx * 0.7, dx * 0.7
+                elif i in (3, 4):
+                    dx, dy = 0, dx
+                elif i in (5, 6):
+                    dx, dy = -dx * 0.7, dx * 0.7
+                elif i == 7:
+                    dx, dy = -dx, 0
+                x1, y1 = cx + dx * 0.75, cy + dy * 0.75
+                x2, y2 = cx + dx, cy + dy
+                draw.line((x1, y1, x2, y2), fill=(255, 233, 165, 230), width=2)
+
+        if kind in ("cloudy", "rain", "snow", "fog", "thunder", "sunny"):
+            bx = x + size * 0.2
+            by = y + size * 0.32
+            draw.ellipse((bx, by + 8, bx + size * 0.28, by + size * 0.34), fill=cloud)
+            draw.ellipse((bx + size * 0.16, by, bx + size * 0.48, by + size * 0.34), fill=cloud)
+            draw.ellipse((bx + size * 0.36, by + 10, bx + size * 0.7, by + size * 0.35), fill=cloud)
+            draw.rounded_rectangle((bx + 2, by + size * 0.2, bx + size * 0.64, by + size * 0.38), radius=10, fill=cloud)
+
+        if kind == "rain":
+            for i in range(3):
+                rx = x + size * (0.28 + i * 0.16)
+                ry = y + size * 0.72
+                draw.line((rx, ry, rx - 4, ry + 10), fill=rain, width=3)
+
+        if kind == "snow":
+            for i in range(3):
+                sx = x + size * (0.28 + i * 0.16)
+                sy = y + size * 0.72
+                draw.line((sx - 4, sy, sx + 4, sy), fill=snow, width=2)
+                draw.line((sx, sy - 4, sx, sy + 4), fill=snow, width=2)
+
+        if kind == "fog":
+            for i in range(2):
+                fy = y + size * (0.68 + i * 0.12)
+                draw.line((x + size * 0.18, fy, x + size * 0.78, fy), fill=(210, 228, 242, 210), width=2)
+
+        if kind == "thunder":
+            draw.polygon(
+                [
+                    (x + size * 0.5, y + size * 0.58),
+                    (x + size * 0.42, y + size * 0.8),
+                    (x + size * 0.53, y + size * 0.8),
+                    (x + size * 0.45, y + size * 0.98),
+                    (x + size * 0.64, y + size * 0.7),
+                    (x + size * 0.54, y + size * 0.7),
+                ],
+                fill=(255, 221, 120, 235),
+            )
+
     def _draw_weather_text(self, image, date_text, weather_text, temp, humidity, wind_dir, wind_scale, vis):
         base = image.convert("RGBA")
         overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
-        card_w = int(SCREEN_WIDTH * 0.84)
-        card_h = int(SCREEN_HEIGHT * 0.52)
-        card_x = (SCREEN_WIDTH - card_w) // 2
-        card_y = int(SCREEN_HEIGHT * 0.2)
-        radius = 20
+        card_w = int(SCREEN_WIDTH * 0.76)
+        card_h = int(SCREEN_HEIGHT * 0.40)
+        card_x = int(SCREEN_WIDTH * 0.06)
+        card_y = int(SCREEN_HEIGHT * 0.12)
+        radius = 18
 
         draw.rounded_rectangle(
             (card_x, card_y, card_x + card_w, card_y + card_h),
             radius=radius,
-            fill=(7, 12, 22, 176),
-            outline=(255, 255, 255, 40),
-            width=2,
+            fill=(7, 12, 22, 160),
+            outline=(255, 255, 255, 34),
+            width=1,
         )
 
         draw.rounded_rectangle(
-            (card_x + 24, card_y + 18, card_x + 168, card_y + 23),
+            (card_x + 18, card_y + 14, card_x + 138, card_y + 18),
             radius=6,
             fill=(6, 182, 212, 220),
         )
 
-        title_font = self._load_font(58)
-        temp_font = self._load_font(72)
-        sub_font = self._load_font(27)
-        meta_font = self._load_font(22)
+        title_font = self._load_font(42)
+        temp_font = self._load_font(50)
+        value_font = self._load_font(24)
+        meta_font = self._load_font(18)
 
         def text_size(text, font):
             box = draw.textbbox((0, 0), text, font=font)
             return box[2] - box[0], box[3] - box[1]
 
-        left_pad = 30
-        right_pad = 28
-        top_pad = 34
-        header_h = 178
-        left_x = card_x + left_pad
-        header_y = card_y + top_pad
-        right_x = card_x + int(card_w * 0.56)
+        left_x = card_x + 22
+        right_x = card_x + card_w - 24
+        header_y = card_y + 24
+        sep_y = card_y + 112
 
         weather_main = str(weather_text or "未知天气")
         date_main = str(date_text or self.weather_service.today_key())
@@ -78,32 +156,29 @@ class WeatherDisplayUnit(DisplayUnit):
         wind_direction = str(wind_dir or "--")
         vis_value = str(vis if vis not in (None, "") else "--")
 
-        draw.text((left_x, header_y), date_main, fill=(208, 220, 235, 232), font=meta_font)
+        draw.text((left_x, header_y), date_main, fill=(210, 223, 236, 226), font=meta_font)
 
-        date_w, date_h = text_size(date_main, meta_font)
-        weather_y = header_y + date_h + 14
-        draw.text((left_x, weather_y), weather_main, fill=(255, 255, 255, 242), font=title_font)
+        icon_size = 56
+        icon_x = left_x
+        icon_y = header_y + 26
+        self._draw_weather_icon(draw, self._weather_icon_kind(weather_main), icon_x, icon_y, icon_size)
 
-        temp_text = f"{temp_value}°"
-        temp_w, temp_h = text_size(temp_text, temp_font)
-        temp_y = header_y + 8
-        draw.text((right_x + right_pad, temp_y), temp_text, fill=(246, 252, 255, 240), font=temp_font)
-        draw.text((right_x + right_pad + temp_w + 8, temp_y + temp_h - 34), "C", fill=(188, 206, 226, 230), font=sub_font)
-        draw.text((right_x + right_pad, temp_y + temp_h + 8), "当前气温", fill=(176, 196, 214, 228), font=meta_font)
+        weather_x = icon_x + icon_size + 12
+        weather_y = icon_y + 2
+        draw.text((weather_x, weather_y), weather_main, fill=(255, 255, 255, 242), font=title_font)
 
-        sep_y = card_y + header_h
+        temp_text = f"{temp_value}°C"
+        temp_w, _ = text_size(temp_text, temp_font)
+        draw.text((right_x - temp_w, header_y + 34), temp_text, fill=(242, 250, 255, 238), font=temp_font)
+        temp_label = "当前气温"
+        label_w, _ = text_size(temp_label, meta_font)
+        draw.text((right_x - label_w, header_y + 84), temp_label, fill=(174, 194, 214, 222), font=meta_font)
+
         draw.line(
-            [(card_x + 22, sep_y), (card_x + card_w - 22, sep_y)],
-            fill=(255, 255, 255, 36),
-            width=2,
+            [(card_x + 18, sep_y), (card_x + card_w - 18, sep_y)],
+            fill=(255, 255, 255, 34),
+            width=1,
         )
-
-        grid_top = sep_y + 18
-        grid_left = card_x + 24
-        grid_gap = 14
-        grid_w = card_w - 48
-        cell_w = (grid_w - grid_gap) // 2
-        cell_h = 74
 
         metrics = [
             ("湿度", f"{humidity_value}%"),
@@ -112,21 +187,18 @@ class WeatherDisplayUnit(DisplayUnit):
             ("能见度", f"{vis_value}km"),
         ]
 
+        grid_top = sep_y + 14
+        col_w = (card_w - 36) // 4
         for i, (label, value) in enumerate(metrics):
-            row = i // 2
-            col = i % 2
-            cell_x = grid_left + col * (cell_w + grid_gap)
-            cell_y = grid_top + row * (cell_h + 12)
-
-            draw.rounded_rectangle(
-                (cell_x, cell_y, cell_x + cell_w, cell_y + cell_h),
-                radius=12,
-                fill=(12, 22, 36, 128),
-                outline=(255, 255, 255, 28),
-                width=1,
-            )
-            draw.text((cell_x + 14, cell_y + 11), label, fill=(175, 194, 212, 226), font=meta_font)
-            draw.text((cell_x + 14, cell_y + 36), value, fill=(236, 246, 255, 236), font=sub_font)
+            col_x = card_x + 18 + i * col_w
+            if i > 0:
+                draw.line(
+                    [(col_x, grid_top + 2), (col_x, grid_top + 52)],
+                    fill=(255, 255, 255, 24),
+                    width=1,
+                )
+            draw.text((col_x + 10, grid_top + 4), label, fill=(170, 190, 210, 220), font=meta_font)
+            draw.text((col_x + 10, grid_top + 26), value, fill=(236, 246, 255, 236), font=value_font)
 
         composed = Image.alpha_composite(base, overlay).convert("RGB")
         image.paste(composed)
@@ -248,5 +320,5 @@ class WeatherDisplayUnit(DisplayUnit):
         return cls(
             data.get("name", "Weather DU"),
             data.get("location", ""),
-            data.get("display_time", 30),
+            data.get("display_time", 120),
         )

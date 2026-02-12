@@ -1134,6 +1134,42 @@ body::after {
     gap: 8px;
 }
 
+.playlist-playing-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    letter-spacing: 0.4px;
+    color: rgba(219, 252, 232, 0.98);
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    background: rgba(16, 185, 129, 0.2);
+    white-space: nowrap;
+}
+
+.playlist-playing-tag::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(110, 231, 183, 0.95);
+    box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.5);
+    animation: playingDotPulse 1.3s ease-out infinite;
+}
+
+@keyframes playingDotPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.5);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(110, 231, 183, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(110, 231, 183, 0);
+    }
+}
+
 .playlist-actions {
     display: flex;
     gap: 10px;

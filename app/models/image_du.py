@@ -9,7 +9,7 @@ import os
 class ImageDisplayUnit(DisplayUnit):
     """图片显示单元，用于显示静态图片"""
     
-    def __init__(self, name, image_path=None, display_time=10, image_id=None, enable_color_diffusion=False):
+    def __init__(self, name, image_path=None, display_time=120, image_id=None, enable_color_diffusion=False):
         """
         初始化图片显示单元
         :param name: 显示单元名称
@@ -65,7 +65,7 @@ class ImageDisplayUnit(DisplayUnit):
         return cls(
             data.get("name", "Image DU"),
             data.get("image_path"),
-            data.get("display_time", 10),
+            data.get("display_time", 120),
             data.get("image_id"),
             data.get("enable_color_diffusion", False),
         )

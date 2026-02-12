@@ -9,11 +9,10 @@ function initAdminPage() {
     initEditorPanel();
 
     initPlaylistDelegation();
-    
-    // 加载播放列表
+    activePlaylistId = normalizePlaylistId(localStorage.getItem('activePlaylistId'));
+    autoPinPlayingEnabled = localStorage.getItem(AUTO_PIN_STORAGE_KEY) === '1';
+    initAutoPinToggle();
     loadPlaylists();
-
-    activePlaylistId = localStorage.getItem('activePlaylistId') || null;
 }
 
 // 全局变量，用于存储当前选中的播放列表ID
@@ -24,6 +23,15 @@ let currentEditingDuId = null;
 let activePlaylistId = null;
 let editorPreviewRequestToken = 0;
 let cachedPlaylists = [];
+let autoPinPlayingEnabled = false;
+const AUTO_PIN_STORAGE_KEY = 'autoPinPlayingPlaylistEnabled';
+
+function normalizePlaylistId(id) {
+    if (id === null || id === undefined || id === '') {
+        return null;
+    }
+    return String(id);
+}
 
 // 初始化模态框
 function initModals() {
@@ -215,9 +223,13 @@ function loadPlaylists() {
             displayUnitsById[du.id] = du;
         });
         cachedPlaylists = Array.isArray(playlists) ? playlists : [];
-        if (status && status.active_playlist_id) {
-            activePlaylistId = status.active_playlist_id;
-            localStorage.setItem('activePlaylistId', activePlaylistId);
+        if (status && Object.prototype.hasOwnProperty.call(status, 'active_playlist_id')) {
+            activePlaylistId = normalizePlaylistId(status.active_playlist_id);
+            if (activePlaylistId) {
+                localStorage.setItem('activePlaylistId', activePlaylistId);
+            } else {
+                localStorage.removeItem('activePlaylistId');
+            }
         }
 
         renderPlaylists(playlistList, playlists);
@@ -288,13 +300,14 @@ function createPlaylistItemHTML(playlist) {
         `;
     }).join('');
 
-    const isPlaying = activePlaylistId === playlist.id;
+    const isPlaying = normalizePlaylistId(activePlaylistId) === normalizePlaylistId(playlist.id);
 
     return `
         <div class="playlist-item ${isPlaying ? 'is-playing' : ''}" data-playlist-id="${playlist.id}" data-reveal-index="">
             <div class="playlist-header">
                 <div class="playlist-title-wrap">
                     <h4 class="playlist-title">${playlist.name}</h4>
+                    ${isPlaying ? '<span class="playlist-playing-tag">播放中</span>' : ''}
                     <button class="icon-btn rename-btn" data-action="rename" data-playlist-id="${playlist.id}" title="重命名" aria-label="重命名">
                         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
                             <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm2.92 2.33H5v-.92l8.06-8.06.92.92L5.92 19.58zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.996.996 0 1 0-1.41 1.41l2.34 2.34c.39.39 1.02.39 1.41 0z"/>
@@ -589,7 +602,17 @@ function updateEditorPreview(imageId, diffusionToggle, previewImg, requestToken,
 
     previewImg.classList.add('img-loading');
     const diffusion = diffusionToggle ? diffusionToggle.checked : false;
-    previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageId)}&enable_color_diffusion=${diffusion}&t=${Date.now()}`;
+    // fast path: show original immediately
+    previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageId)}&enable_color_diffusion=false&async=true&t=${Date.now()}`;
+    if (diffusion) {
+        window.setTimeout(() => {
+            if (requestToken !== editorPreviewRequestToken) {
+                return;
+            }
+            previewImg.classList.add('img-loading');
+            previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageId)}&enable_color_diffusion=true&async=false&t=${Date.now()}`;
+        }, 200);
+    }
 }
 
 function setEditorPreviewState(previewWrap, state, text) {
@@ -836,7 +859,14 @@ function updateAddPreview(imageIdInput, diffusionToggle, preview, previewImg) {
     }
     previewImg.classList.add('img-loading');
     const diffusion = diffusionToggle ? diffusionToggle.checked : false;
-    previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageIdInput.value)}&enable_color_diffusion=${diffusion}&t=${Date.now()}`;
+    // fast path: show original immediately
+    previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageIdInput.value)}&enable_color_diffusion=false&async=true&t=${Date.now()}`;
+    if (diffusion) {
+        window.setTimeout(() => {
+            previewImg.classList.add('img-loading');
+            previewImg.src = `/api/image-preview/file?image_id=${encodeURIComponent(imageIdInput.value)}&enable_color_diffusion=true&async=false&t=${Date.now()}`;
+        }, 200);
+    }
     preview.style.display = 'block';
 }
 
@@ -1009,7 +1039,8 @@ async function deletePlaylist(playlistId) {
 }
 
 function togglePlaylistPlayback(playlistId) {
-    if (activePlaylistId === playlistId) {
+    const normalizedPlaylistId = normalizePlaylistId(playlistId);
+    if (activePlaylistId === normalizedPlaylistId) {
         fetch('/api/playlists/stop', { method: 'POST' })
         .then(() => {
             activePlaylistId = null;
@@ -1021,8 +1052,8 @@ function togglePlaylistPlayback(playlistId) {
         fetch(`/api/playlists/${playlistId}/play`, { method: 'POST' })
         .then(response => response.json())
         .then(() => {
-            activePlaylistId = playlistId;
-            localStorage.setItem('activePlaylistId', playlistId);
+            activePlaylistId = normalizedPlaylistId;
+            localStorage.setItem('activePlaylistId', normalizedPlaylistId);
             loadPlaylists();
         })
         .catch(() => {});

@@ -405,6 +405,7 @@ def preview_image_file():
     """
     image_id = request.args.get('image_id')
     enable_color_diffusion = request.args.get('enable_color_diffusion', 'false').lower() == 'true'
+    async_mode = request.args.get('async', 'false').lower() == 'true'
     if not image_id:
         return jsonify({'error': 'image_id is required'}), 400
 
@@ -418,6 +419,14 @@ def preview_image_file():
         from io import BytesIO
 
         image = Image.open(image_path).convert('RGB')
+
+        # async mode: return original immediately if diffusion requested
+        if enable_color_diffusion and async_mode:
+            buffer = BytesIO()
+            image.save(buffer, format='PNG')
+            buffer.seek(0)
+            return send_file(buffer, mimetype='image/png')
+
         if enable_color_diffusion:
             image = apply_color_diffusion(image)
 

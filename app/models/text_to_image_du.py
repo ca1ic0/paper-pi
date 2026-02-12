@@ -11,7 +11,7 @@ from datetime import datetime
 class TextToImageDisplayUnit(DisplayUnit):
     """文生图显示单元，使用LLM优化prompt并生成图片"""
     
-    def __init__(self, name, user_prompt, display_time=30):
+    def __init__(self, name, user_prompt, display_time=120):
         """
         初始化文生图显示单元
         :param name: 显示单元名称
@@ -70,5 +70,5 @@ class TextToImageDisplayUnit(DisplayUnit):
         return cls(
             data.get("name", "每日一图"),
             data.get("user_prompt", ""),
-            data.get("display_time", 30),
+            data.get("display_time", 120),
         )
