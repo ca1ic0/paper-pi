@@ -2,16 +2,17 @@
 
 ## 项目简介
 
-Paper Pi 是一个基于 Flask 开发的墨水屏智能应用系统，支持多种显示单元类型，包括空单元、图片单元、文生图单元和天气单元。系统集成了阿里云 DashScope API，使用先进的 LLM 技术优化用户提示词并生成高质量图片，为墨水屏提供丰富的内容展示能力。
+Paper Pi 是一个基于 Flask 开发的墨水屏智能应用系统，支持多种显示单元类型，包括空单元、图片单元、每日一图、天气单元与唐诗绝句单元。系统集成了阿里云 DashScope API，使用先进的 LLM 技术优化用户提示词并生成高质量图片，为墨水屏提供丰富的内容展示能力。
 
 ## 核心功能
 
 ### 1. 显示单元 (Display Unit)
 
 - **空单元**：生成白色图片用于刷新墨水屏幕
-- **图片单元**：从图片库选择静态图片显示，支持颜色扩散算法
-- **文生图单元**：使用 LLM 优化用户提示词，生成图片并显示
+- **图片单元**：从图片库选择静态图片显示，支持颜色扩散算法（黑/白/红/绿/黄/蓝）
+- **每日一图**：用户设置提示词，每日首次生成并缓存，后续当日复用；提示词修改会立即重新生成
 - **天气单元**：根据地理位置获取今日天气，生成新海诚风格背景并叠加天气信息（当天首次生成并缓存）
+- **唐诗绝句**：每次播放生成一首七言绝句（可选情绪/主题）
 
 ### 2. 播放列表管理
 
@@ -78,9 +79,13 @@ paper-pi/
     │   ├── image_gen_queue_service.py
     │   ├── image_library_service.py
     │   ├── image_processing_service.py
+    │   ├── ina219_service.py
+    │   ├── playback_service.py
     │   ├── weather_service.py
     │   ├── weather_cache_service.py
     │   └── storage_service.py
+    ├── lib/
+    │   └── ina219.py
     ├── static/         # 静态文件
     │   ├── css/
     │   └── js/
@@ -145,6 +150,9 @@ WEATHER_API_HOST=your_weather_api_host
 WEATHER_PEM_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
 WEATHER_SUB_ID=your_sub_id
 WEATHER_KID_ID=your_kid_id
+
+# 天气文字中文字体（可选）
+WEATHER_FONT_PATH=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
 ```
 
 > **注意**：请将 `your_dashscope_api_key_here` 替换为您的实际阿里云 DashScope API 密钥。
@@ -217,18 +225,25 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 5. 点击"保存"按钮
 6. 可在播放列表详情中添加显示单元
 
-### 3. 文生图功能
+### 3. 每日一图
 
-1. 创建文生图显示单元
-2. 输入用户提示词，例如："一间有着精致窗户的花店，漂亮的木质门，摆放着花朵"
-3. 系统会使用 LLM 优化提示词，然后调用阿里云文生图 API 生成图片
-4. 生成的图片会在墨水屏上显示
+1. 创建“每日一图”单元
+2. 输入提示词，例如：“一间有着精致窗户的花店，漂亮的木质门，摆放着花朵”
+3. 当日首次生成图片并缓存，后续当日复用
+4. 提示词修改会立即触发新图生成
 
 ### 4. 天气单元
 
 1. 创建天气显示单元
 2. 填写地理位置（location code，例如 `101010100`）
 3. 当日首次调用会生成背景图并缓存，后续调用直接复用
+4. 天气卡片可显示 UPS 电量（INA219）
+
+### 5. 唐诗绝句
+
+1. 创建“唐诗绝句”单元
+2. 可选填写情绪/主题（如“思乡”“秋夜”）
+3. 每次播放生成一首七言绝句并绘制
 
 ## API 端点
 
@@ -246,6 +261,10 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 - `POST /api/playlists`：创建新的播放列表
 - `PUT /api/playlists/<playlist_id>`：更新播放列表
 - `DELETE /api/playlists/<playlist_id>`：删除播放列表
+- `POST /api/playlists/<playlist_id>/play`：播放该列表
+- `POST /api/playlists/pause`：暂停播放
+- `POST /api/playlists/stop`：停止播放
+- `GET /api/playlists/status`：播放状态
 
 ### 测试显示 API
 
@@ -263,6 +282,7 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 ### 预览 API
 
 - `POST /api/image-preview`：根据图片库ID生成预览（支持颜色扩散）
+- `GET /api/image-preview/file`：根据图片库ID返回预览图片文件（支持颜色扩散）
 
 ## 技术细节
 
@@ -289,6 +309,14 @@ curl -X POST http://127.0.0.1:5000/api/test-display \
 ### 5. 日志
 
 外部 API 调用会记录到 `LOG/api.log`。
+
+### 6. 播放
+
+服务器端循环播放播放列表，根据单元显示时间进行轮播。
+
+### 7. UPS 电量
+
+UPS 电量读取基于 INA219（`lib/ina219.py`），在 debug 模式下默认返回 100%。
 
 ## 故障排除
 
