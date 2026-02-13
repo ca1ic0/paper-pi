@@ -59,7 +59,13 @@
 - JWT 认证：`WEATHER_PEM_KEY` + `WEATHER_SUB_ID` + `WEATHER_KID_ID`
 - 外部 API 调用日志记录（`LOG/api.log`）
 
-### 6) 日志 LoggingService（`app/services/logging_service.py`）
+### 6) UPS 电量（INA219）
+
+- Lib：`lib/ina219.py`
+- Service：`app/services/ina219_service.py`
+- debug 模式返回 100%
+
+### 7) 日志 LoggingService（`app/services/logging_service.py`）
 
 - 统一记录外部 API 调用结果：天气、文生图、风格化
 - 日志文件：`LOG/api.log`
@@ -93,6 +99,7 @@
   - 玻璃卡片 UI（半透明底）
   - 日期 / 天气描述 / 温湿度 / 风向风力 / 能见度
   - 中文字体支持（可指定 `WEATHER_FONT_PATH`）
+  - 可选绘制 UPS 电量
 
 ### 5) PoetryDisplayUnit（唐诗绝句）
 
@@ -127,6 +134,7 @@
   - `GET /api/image-preview/file?image_id=...&enable_color_diffusion=true|false`
 - 所有图片 `src` 加 `?t=时间戳` 规避缓存
 - 加载动画：`img-loading`（旋转指示器），失败显示占位样式
+- 预览为“异步体验”：先显示原图，再覆盖扩散图
 
 ## API 接口概览（非完整）
 
@@ -167,4 +175,3 @@
 - 文生图/风格化走队列或后台线程，耗时长
 - Zero 内存小：使用 buffer 复用减少峰值
 - 图片缓存：所有图片 URL 加 `?t=` 防止浏览器缓存旧图
-
